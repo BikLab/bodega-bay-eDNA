@@ -86,3 +86,30 @@ to_remove5 <- c("18S-bodega-bay_CC.B.3.3.RS")
 phylo_18s <- prune_samples(!(sample_names(phylo_18s) %in% to_remove4), phylo_18s) # 5470 taxa and 192 samples
 
 phylo_18s <- prune_samples(!(sample_names(phylo_18s) %in% to_remove5), phylo_18s) # 5470 taxa and 191 samples
+
+##################### Using Decontam for filering out contaminants ####
+sample_data(phylo_18s)$is.neg <- sample_data(phylo_18s)$Habitat == "NegtCtrl" | sample_data(phylo_18s)$Habitat == "Mock" | sample_data(phylo_18s)$Habitat == "Blank" # create a sample-variable for contaminants
+phylo_contaminants_18s <- isContaminant(phylo_18s, method = "prevalence", neg="is.neg", threshold=0.5, detailed = TRUE, normalize = TRUE) # detect contaminants based on control samples and their ASV prevalance
+table(phylo_contaminants_18s$contaminant) # check number of ASVs that are contaminents (41)
+
+# Make phyloseq object of presence-absence in negative controls and true samples
+phylo_contaminants.pa_18s <- transform_sample_counts(phylo_18s, function(abund) 1 * (abund > 0)) # convert phyloseq table to presence-absence
+
+ps.pa.neg_18s <- prune_samples(sample_data(phylo_contaminants.pa_18s)$Habitat == "Control" | sample_data(phylo_contaminants.pa_18s)$Habitat == "Blank" | 
+                                 sample_data(phylo_contaminants.pa_18s)$Habitat == "Mock",phylo_contaminants.pa_18s) # identify controls
+
+ps.pa.pos_18s <- prune_samples(sample_data(phylo_contaminants.pa_18s)$Habitat != "Control" | sample_data(phylo_contaminants.pa_18s)$Habitat != "Blank" |
+                                 sample_data(phylo_contaminants.pa_18s)$Habitat != "Mock", phylo_contaminants.pa_18s) # identify samples
+
+df.pa_18s <- data.frame(pa.pos=taxa_sums(ps.pa.pos_18s), pa.neg=taxa_sums(ps.pa.neg_18s), contaminant=phylo_contaminants_18s$contaminant) # convert into a dataframe
+
+# Make phyloseq object of presence-absence in negative controls and true samples
+ggplot(data=df.pa_18s, aes(x=pa.neg, y=pa.pos, color=contaminant)) + geom_point() + xlab("Prevalence (Negative Controls)") + ylab("Prevalence (True Samples)")
+
+phylo_18s <- prune_taxa(!phylo_contaminants_18s$contaminant, phylo_18s) # remove ASVs identified as decontaminants from the dataset (5429 taxa and 191 samples)
+
+df_phylo_18s <- psmelt(phylo_18s)
+
+clan_18s_export <- as.data.frame(otu_table(phylo_18s))
+
+write.csv(clan_18s_export, "clan_18s_export.csv")
