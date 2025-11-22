@@ -594,3 +594,1032 @@ custom_theme <- ttheme_minimal(
 
 symbionts_plot <- grid.arrange(symbionts_bar_18s_2, tableGrob(symbiont_data, theme = custom_theme, rows = NULL), nrow = 1)
 
+##################### Beta Diversity for Raw Sediment All Samples #################
+ 
+# PCoA Raw Sediment
+phylo_18s_raw_ord_pcoa <- ordinate(phylo_normalized_raw_18s, "PCoA", "bray")
+phylo_18s_raw_pcoa <- phyloseq::plot_ordination(phylo_normalized_raw_18s, phylo_18s_raw_ord_pcoa, type="samples", color="Site", shape="Habitat", title = "18S rRNA Raw Sediment - Microeukaryotes") + 
+  geom_point(size = 3) +
+  scale_color_manual(values = c("#C8AB83","#2E5266","#E43F6F"),breaks = c("Campbell Cove", "Westside Park", "Mason's Marina")) +
+  scale_shape_manual(values = c(1,16),
+                     name = "Habitat",
+                     breaks = c("Sea Grass", "Bare Sediment")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  theme(legend.position = "none")
+  
+phylo_18s_raw_pcoa$layers <- phylo_18s_raw_pcoa$layers[-1]
+
+phylo_18s_raw_pcoa
+
+
+# PERMANOVA for All 16s Samples
+# Calculate bray curtis distance matrix
+bray_18s_raw <- phyloseq::distance(phylo_normalized_raw_18s, method = "bray")
+
+# make a data frame from the sample_data
+sampledf_18s_raw <- data.frame(sample_data(phylo_normalized_raw_18s))
+
+# Create a combined factor
+sampledf_18s_raw$Site_Habitat <- interaction(sampledf_18s_raw$Site, sampledf_18s_raw$Habitat)
+
+
+# Adonis test
+adonis_results_18s_site_raw <- adonis2(bray_18s_raw ~ Site*Habitat, data = sampledf_18s_raw, permutations = 9999, by = "terms")
+print(adonis_results_18s_site_raw) # Significance found at Pr(>F) = .001 (***)
+
+
+# Homogeneity of dispersion test
+beta_18s_results_site_raw <- betadisper(bray_18s_raw, sampledf_18s_raw$Site_Habitat)
+plot(beta_18s_results_site_raw)
+permutest(beta_18s_results_site_raw) # Significance found at Pr(>F) = .001 (***)
+TukeyHSD(beta_18s_results_site_raw)
+
+
+# Pairwise
+results_list_18s_raw_hab <- list()
+for (hab in unique(sampledf_18s_raw$Habitat)) {
+  idx <- sampledf_18s_raw$Habitat == hab
+  sub_dist <- as.dist(as.matrix(bray_18s_raw)[idx, idx])
+  sub_code <- droplevels(as.factor(sampledf_18s_raw$Site[idx]))
+  pw <- pairwise.perm.manova(sub_dist, sub_code,
+                             nperm = 9999,
+                             p.method = "fdr")
+  results_list_18s_raw_hab[[hab]] <- pw
+}
+print(results_list_18s_raw_hab)
+
+
+results_list_18s_raw_site <- list()
+for (site in unique(sampledf_18s_raw$Site)) {
+  idx <- sampledf_18s_raw$Site == site
+  sub_dist <- as.dist(as.matrix(bray_18s_raw)[idx, idx])
+  sub_code <- droplevels(as.factor(sampledf_18s_raw$Habitat[idx]))
+  pw <- pairwise.perm.manova(sub_dist, sub_code,
+                             nperm = 9999,
+                             p.method = "fdr")
+  results_list_18s_raw_site[[site]] <- pw
+}
+print(results_list_18s_raw_site)
+
+
+phylo_18s_raw_pcoa_habitat <- plot_ordination(phylo_normalized_raw_18s, phylo_18s_raw_ord_pcoa, type="samples", color="Habitat", shape="Site", title = "18S rRNA Raw Sediment - Microeukaryotes") + 
+  geom_point(size = 3) +
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  scale_shape_manual(values = c(15, 17, 19), breaks = c("Campbell Cove", "Westside Park", "Mason's Marina")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  theme(legend.position = "none")
+
+phylo_18s_raw_pcoa_habitat$layers <- phylo_18s_raw_pcoa_habitat$layers[-1]
+
+phylo_18s_raw_pcoa_habitat
+
+
+
+
+# NMDS Raw Sediment
+phylo_18s_raw_ord_nmds <- ordinate(phylo_normalized_raw_18s, "NMDS", "bray")
+phylo_18s_raw_nmds <- plot_ordination(phylo_normalized_raw_18s, phylo_18s_raw_ord_nmds, type="samples", color="Site", shape="Habitat", title = "18S rRNA Raw Sediment - Microeukaryotes") + 
+  geom_point(size = 3) +
+  scale_color_manual(values = c("#C8AB83","#2E5266","#E43F6F"),breaks = c("Campbell Cove", "Westside Park", "Mason's Marina"))+
+  scale_shape_manual(values = c(1,16),
+                     name = "Habitat",
+                     breaks = c("Sea Grass", "Bare Sediment")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = 1.1, y = 1.4, label ="2D Stress: 0.20") +
+  theme(legend.position = "none")
+
+phylo_18s_raw_nmds$layers <- phylo_18s_raw_nmds$layers[-1]
+
+phylo_18s_raw_nmds
+
+
+
+
+phylo_18s_raw_nmds_habitat <- plot_ordination(phylo_normalized_raw_18s, phylo_18s_raw_ord_nmds, type="samples", color="Habitat", shape="Site", title = "18S rRNA Raw Sediment - Microeukaryotes") + 
+  geom_point(size = 3) +
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  scale_shape_manual(values = c(15, 17, 19), breaks = c("Campbell Cove", "Westside Park", "Mason's Marina")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = 1.1, y = 1.4, label ="2D Stress: 0.20") +
+  theme(legend.position = "none")
+
+phylo_18s_raw_nmds_habitat$layers <- phylo_18s_raw_nmds_habitat$layers[-1]
+
+phylo_18s_raw_nmds_habitat 
+
+##################### Beta Diversity for Ludox All Samples ###########################
+# PCoA Ludox
+#phyo_18s_ludox_no_wpbs <- subset_samples(phylo_normalized_ludox_18s, Site != "Westside Park" | Habitat != "Bare Sediment")
+#psmelt(phyo_18s_ludox_no_wpbs)
+phylo_18s_ludox_ord_pcoa <- ordinate(phylo_normalized_ludox_18s, "PCoA", "bray")
+phylo_18s_ludox_pcoa <- phyloseq::plot_ordination(phylo_normalized_ludox_18s, phylo_18s_ludox_ord_pcoa, type="samples", color="Site", shape="Habitat", title = "18S rRNA Ludox - Meiofauna") + 
+  geom_point(size = 3) +
+  scale_color_manual(values = c("#C8AB83","#2E5266","#E43F6F"),breaks = c("Campbell Cove", "Westside Park", "Mason's Marina"))+
+  scale_shape_manual(values = c(1,16),
+                     name = "Habitat",
+                     breaks = c("Sea Grass", "Bare Sediment")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  theme(legend.position = "none") +
+  scale_x_reverse()
+
+phylo_18s_ludox_pcoa$layers <- phylo_18s_ludox_pcoa$layers[-1]
+
+phylo_18s_ludox_pcoa
+
+# PERMANOVA for All 18s Samples
+# Calculate bray curtis distance matrix
+bray_18s_ludox <- phyloseq::distance(phylo_normalized_ludox_18s, method = "bray")
+
+# make a data frame from the sample_data
+sampledf_18s_ludox <- data.frame(sample_data(phylo_normalized_ludox_18s))
+
+# Adonis test
+adonis_results_18s_site_ludox <- adonis2(bray_18s_ludox ~ Site*Habitat, data = sampledf_18s_ludox, permutations = 9999, by = "terms")
+adonis_results_18s_site_ludox # Significance found at Pr(>F) = .001 (***)
+
+
+# Homogeneity of dispersion test
+beta_18s_results_site_ludox <- betadisper(bray_18s_ludox, sampledf_18s_ludox$Site_Habitat)
+plot(beta_18s_results_site_ludox)
+permutest(beta_18s_results_site_ludox) # Significance found at Pr(>F) = .001 (***)
+TukeyHSD(beta_18s_results_site_ludox)
+
+# Create a combined factor
+sampledf_18s_ludox$Site_Habitat <- interaction(sampledf_18s_ludox$Site, sampledf_18s_ludox$Habitat)
+
+# Pariwise
+results_list_18s_ludox_hab <- list()
+for (hab in unique(sampledf_18s_ludox$Habitat)) {
+  idx <- sampledf_18s_ludox$Habitat == hab
+  sub_dist <- as.dist(as.matrix(bray_18s_ludox)[idx, idx])
+  sub_code <- droplevels(as.factor(sampledf_18s_ludox$Site[idx]))
+  pw <- pairwise.perm.manova(sub_dist, sub_code,
+                             nperm = 9999,
+                             p.method = "fdr")
+  results_list_18s_ludox_hab[[hab]] <- pw
+}
+print(results_list_18s_ludox_hab)
+
+
+results_list_18s_ludox_site <- list()
+for (site in unique(sampledf_18s_ludox$Site)) {
+  idx <- sampledf_18s_ludox$Site == site
+  sub_dist <- as.dist(as.matrix(bray_18s_ludox)[idx, idx])
+  sub_code <- droplevels(as.factor(sampledf_18s_ludox$Habitat[idx]))
+  pw <- pairwise.perm.manova(sub_dist, sub_code,
+                             nperm = 9999,
+                             p.method = "fdr")
+  results_list_18s_ludox_site[[site]] <- pw
+}
+print(results_list_18s_ludox_site)
+
+
+
+phylo_18s_ludox_pcoa_habitat <- plot_ordination(phylo_normalized_ludox_18s, phylo_18s_ludox_ord_pcoa, type="samples", color="Habitat", shape="Site", title = "18S rRNA Ludox - Meiofauna") + 
+  geom_point(size = 3) +
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  scale_shape_manual(values = c(15, 17, 19), breaks = c("Campbell Cove", "Westside Park", "Mason's Marina")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  theme(legend.position = "none")
+
+phylo_18s_ludox_pcoa_habitat$layers <- phylo_18s_ludox_pcoa_habitat$layers[-1]
+
+phylo_18s_ludox_pcoa_habitat
+
+
+
+
+# NMDS Ludox
+phylo_18s_ludox_ord_nmds <- ordinate(phylo_normalized_ludox_18s, "NMDS", "bray")
+phylo_18s_ludox_nmds <- plot_ordination(phylo_normalized_ludox_18s, phylo_18s_ludox_ord_nmds, type="samples", color="Site", shape="Habitat", title = "18S rRNA Ludox - Meiofauna") + 
+  geom_point(size = 3) +
+  scale_color_manual(values = c("#C8AB83","#2E5266","#E43F6F"),breaks = c("Campbell Cove", "Westside Park", "Mason's Marina"))+
+  scale_shape_manual(values = c(1,16),
+                     name = "Habitat",
+                     breaks = c("Sea Grass", "Bare Sediment")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = 1.1, y = 1, label ="2D Stress: 0.20") +
+  theme(legend.position = "none")
+
+phylo_18s_ludox_nmds$layers <- phylo_18s_ludox_nmds$layers[-1]
+
+phylo_18s_ludox_nmds
+
+
+
+
+phylo_18s_ludox_nmds_habitat <- plot_ordination(phylo_normalized_ludox_18s, phylo_18s_ludox_ord_nmds, type="samples", color="Habitat", shape="Site", title = "18S rRNA Ludox - Meiofauna") + 
+  geom_point(size = 3) +
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  scale_shape_manual(values = c(15, 17, 19), breaks = c("Campbell Cove", "Westside Park", "Mason's Marina")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = 1.1, y = 1, label ="2D Stress: 0.20") +
+  theme(legend.position = "none")
+
+phylo_18s_ludox_nmds_habitat$layers <- phylo_18s_ludox_nmds_habitat$layers[-1]
+
+phylo_18s_ludox_nmds_habitat
+
+##################### Beta Diversity Split by Location All Samples ###########################
+# Campbell Cove Only PCoA
+phylo_18s_ord_pcoa_cc <- ordinate(CC_phylo_18s_normalized, "PCoA", "bray")
+
+phylo_18s_pcoa_cc <- plot_ordination(CC_phylo_18s_normalized, phylo_18s_ord_pcoa_cc, type="samples", color="Habitat", shape = "SampleType",
+                                     title = "18S rRNA Campbell Cove") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold"))
+
+phylo_18s_pcoa_cc$layers <- phylo_18s_pcoa_cc$layers[-1]
+
+phylo_18s_pcoa_cc
+
+
+# Westside Park Only PCoA
+phylo_18s_ord_pcoa_wp <- ordinate(WP_phylo_18s_normalized, "PCoA", "bray")
+
+phylo_18s_pcoa_wp <- plot_ordination(WP_phylo_18s_normalized, phylo_18s_ord_pcoa_wp, type="samples", color="Habitat", shape = "SampleType",
+                                     title = "18S rRNA Westside Park") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold"))
+
+phylo_18s_pcoa_wp$layers <- phylo_18s_pcoa_wp$layers[-1]
+
+phylo_18s_pcoa_wp
+
+
+
+# Mason's Marina Only PCoA
+phylo_18s_ord_pcoa_mm <- ordinate(MM_phylo_18s_normalized, "PCoA", "bray")
+
+phylo_18s_pcoa_mm <- plot_ordination(MM_phylo_18s_normalized, phylo_18s_ord_pcoa_mm, type="samples", color="Habitat", shape = "SampleType",
+                                     title = "18S rRNA Mason's Marina") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold"))
+
+phylo_18s_pcoa_mm$layers <- phylo_18s_pcoa_mm$layers[-1]
+
+phylo_18s_pcoa_mm
+
+
+
+
+#NMDS
+# Campbell Cove Only NMDS
+phylo_18s_ord_nmds_cc <- ordinate(CC_phylo_18s_normalized, "NMDS", "bray")
+
+phylo_18s_nmds_cc <- plot_ordination(CC_phylo_18s_normalized, phylo_18s_ord_nmds_cc, type="samples", color="Habitat", shape = "SampleType",
+                                     title = "18S rRNA Campbell Cove") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = 1.1, y = 1.1, label ="2D Stress: 0.19")
+
+phylo_18s_nmds_cc$layers <- phylo_18s_nmds_cc$layers[-1]
+
+phylo_18s_nmds_cc
+
+
+
+
+# Westside Park Only NMDS
+phylo_18s_ord_nmds_wp <- ordinate(WP_phylo_18s_normalized, "NMDS", "bray")
+
+phylo_18s_nmds_wp <- plot_ordination(WP_phylo_18s_normalized, phylo_18s_ord_nmds_wp, type="samples", color="Habitat", shape = "SampleType",
+                                     title = "18S rRNA Westside Park") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = 1.1, y = 1.2, label ="2D Stress: 0.15")
+
+phylo_18s_nmds_wp$layers <- phylo_18s_nmds_wp$layers[-1]
+
+phylo_18s_nmds_wp
+
+
+
+
+# Mason's Marina Only NMDS
+phylo_18s_ord_nmds_mm <- ordinate(MM_phylo_18s_normalized, "NMDS", "bray")
+
+phylo_18s_nmds_mm <- plot_ordination(MM_phylo_18s_normalized, phylo_18s_ord_nmds_mm, type="samples", color="Habitat", shape = "SampleType",
+                                     title = "18S rRNA Mason's Marina") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = 1.1, y = 1.1, label ="2D Stress: 0.19")
+
+phylo_18s_nmds_mm$layers <- phylo_18s_nmds_mm$layers[-1]
+
+phylo_18s_nmds_mm
+
+
+##################### Beta Diversity Split by Location Raw Sediment Sample Type ###########################
+# Campbell Cove Only PCoA
+phylo_18s_ord_pcoa_cc_raw <- ordinate(CC_phylo_18s_normalized_raw, "PCoA", "bray")
+
+phylo_18s_pcoa_cc_raw <- plot_ordination(CC_phylo_18s_normalized_raw, phylo_18s_ord_pcoa_cc_raw, type="samples", color="Habitat", shape = "SampleType",
+                                         title = "18S rRNA Raw Sediment Campbell Cove - Microeukaryotes") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold"))
+
+phylo_18s_pcoa_cc_raw$layers <- phylo_18s_pcoa_cc_raw$layers[-1]
+
+phylo_18s_pcoa_cc_raw
+
+# Calculate bray curtis distance matrix
+bray_18s_cc_raw <- phyloseq::distance(CC_phylo_18s_normalized_raw, method = "bray")
+
+# make a data frame from the sample_data
+sampledf_18s_cc_raw <- data.frame(sample_data(CC_phylo_18s_normalized_raw))
+
+# Adonis test
+adonis_results_18s_cc_raw <- adonis2(bray_18s_cc_raw ~ Habitat, data = sampledf_18s_cc_raw)
+adonis_results_18s_cc_raw # Significance found at Pr(>F) = .001 (***)
+
+
+
+# Westside Park Only PCoA
+phylo_18s_ord_pcoa_wp_raw <- ordinate(WP_phylo_18s_normalized_raw, "PCoA", "bray")
+
+phylo_18s_pcoa_wp_raw <- plot_ordination(WP_phylo_18s_normalized_raw, phylo_18s_ord_pcoa_wp_raw, type="samples", color="Habitat", shape = "SampleType",
+                                         title = "18S rRNA Raw Sediment Westside Park - Microeukaryotes") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold"))
+
+phylo_18s_pcoa_wp_raw$layers <- phylo_18s_pcoa_wp_raw$layers[-1]
+
+phylo_18s_pcoa_wp_raw
+
+
+# Calculate bray curtis distance matrix
+bray_18s_wp_raw <- phyloseq::distance(WP_phylo_18s_normalized_raw, method = "bray")
+
+# make a data frame from the sample_data
+sampledf_18s_wp_raw <- data.frame(sample_data(WP_phylo_18s_normalized_raw))
+
+# Adonis test
+adonis_results_18s_wp_raw <- adonis2(bray_18s_wp_raw ~ Habitat, data = sampledf_18s_wp_raw)
+adonis_results_18s_wp_raw # Significance found at Pr(>F) = .001 (***)
+
+
+# Mason's Marina Only PCoA
+phylo_18s_ord_pcoa_mm_raw <- ordinate(MM_phylo_18s_normalized_raw, "PCoA", "bray")
+
+phylo_18s_pcoa_mm_raw <- plot_ordination(MM_phylo_18s_normalized_raw, phylo_18s_ord_pcoa_mm_raw, type="samples", color="Habitat", shape = "SampleType",
+                                         title = "18S rRNA Raw Sediment Mason's Marina - Microeukaryotes") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold"))
+
+phylo_18s_pcoa_mm_raw$layers <- phylo_18s_pcoa_mm_raw$layers[-1]
+
+phylo_18s_pcoa_mm_raw
+
+
+# Calculate bray curtis distance matrix
+bray_18s_mm_raw <- phyloseq::distance(MM_phylo_18s_normalized_raw, method = "bray")
+
+# make a data frame from the sample_data
+sampledf_18s_MM_raw <- data.frame(sample_data(MM_phylo_18s_normalized_raw))
+
+# Adonis test
+adonis_results_18s_mm_raw <- adonis2(bray_18s_mm_raw ~ Habitat, data = sampledf_18s_MM_raw)
+adonis_results_18s_mm_raw # Significance found at Pr(>F) = .001 (***)
+
+
+
+#NMDS
+# Campbell Cove Only NMDS
+phylo_18s_ord_nmds_cc_raw <- ordinate(CC_phylo_18s_normalized_raw, "NMDS", "bray")
+
+phylo_18s_nmds_cc_raw <- plot_ordination(CC_phylo_18s_normalized_raw, phylo_18s_ord_nmds_cc_raw, type="samples", color="Habitat", shape = "SampleType",
+                                         title = "18S rRNA Raw Sediment Campbell Cove - Microeukaryotes") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = .7, y = 1.1, label ="2D Stress: 0.19")
+
+phylo_18s_nmds_cc_raw$layers <- phylo_18s_nmds_cc_raw$layers[-1]
+
+phylo_18s_nmds_cc_raw
+
+
+
+
+# Westside Park Only NMDS
+phylo_18s_ord_nmds_wp_raw <- ordinate(WP_phylo_18s_normalized_raw, "NMDS", "bray")
+
+phylo_18s_nmds_wp_raw <- plot_ordination(WP_phylo_18s_normalized_raw, phylo_18s_ord_nmds_wp_raw, type="samples", color="Habitat", shape = "SampleType",
+                                         title = "18S rRNA Raw Sediment Westside Park - Microeukaryotes") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = 1, y = 1.2, label ="2D Stress: 0.17")
+
+phylo_18s_nmds_wp_raw$layers <- phylo_18s_nmds_wp_raw$layers[-1]
+
+phylo_18s_nmds_wp_raw
+
+
+
+
+# Mason's Marina Only NMDS
+phylo_18s_ord_nmds_mm_raw <- ordinate(MM_phylo_18s_normalized_raw, "NMDS", "bray")
+
+phylo_18s_nmds_mm_raw <- plot_ordination(MM_phylo_18s_normalized_raw, phylo_18s_ord_nmds_mm_raw, type="samples", color="Habitat", shape = "SampleType",
+                                         title = "18S rRNA Raw Sediment Mason's Marina - Microeukaryotes") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = .8, y = .7, label ="2D Stress: 0.15")
+
+phylo_18s_nmds_mm_raw$layers <- phylo_18s_nmds_mm_raw$layers[-1]
+
+phylo_18s_nmds_mm_raw
+
+
+
+
+##################### Beta Diversity Split by Location Ludox Sample Type ###########################
+# Campbell Cove Only PCoA
+phylo_18s_ord_pcoa_cc_ludox <- ordinate(CC_phylo_18s_normalized_ludox, "PCoA", "bray")
+
+phylo_18s_pcoa_cc_ludox <- plot_ordination(CC_phylo_18s_normalized_ludox, phylo_18s_ord_pcoa_cc_ludox, type="samples", color="Habitat", shape = "SampleType",
+                                           title = "18S rRNA Ludox Campbell Cove - Meiofauna") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold"))
+
+phylo_18s_pcoa_cc_ludox$layers <- phylo_18s_pcoa_cc_ludox$layers[-1]
+
+phylo_18s_pcoa_cc_ludox
+
+# Calculate bray curtis distance matrix
+bray_18s_cc_ludox <- phyloseq::distance(CC_phylo_18s_normalized_ludox, method = "bray")
+
+# make a data frame from the CC_phylo_18s_normalized_ludox
+sampledf_18s_cc_ludox <- data.frame(sample_data(CC_phylo_18s_normalized_ludox))
+
+# Adonis test
+adonis_results_18s_cc_ludox <- adonis2(bray_18s_cc_ludox ~ Habitat, data = sampledf_18s_cc_ludox)
+adonis_results_18s_cc_ludox # Significance found at Pr(>F) = .001 (***)
+
+
+# Westside Park Only PCoA
+phylo_18s_ord_pcoa_wp_ludox <- ordinate(WP_phylo_18s_normalized_ludox, "PCoA", "bray")
+
+phylo_18s_pcoa_wp_ludox <- plot_ordination(WP_phylo_18s_normalized_ludox, phylo_18s_ord_pcoa_wp_ludox, type="samples", color="Habitat", shape = "SampleType",
+                                           title = "18S rRNA Ludox Westside Park - Meiofauna") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold"))
+
+phylo_18s_pcoa_wp_ludox$layers <- phylo_18s_pcoa_wp_ludox$layers[-1]
+
+phylo_18s_pcoa_wp_ludox
+
+# Calculate bray curtis distance matrix
+bray_18s_wp_ludox <- phyloseq::distance(WP_phylo_18s_normalized_ludox, method = "bray")
+
+# make a data frame from the CC_phylo_18s_normalized_ludox
+sampledf_18s_wp_ludox <- data.frame(sample_data(WP_phylo_18s_normalized_ludox))
+
+# Adonis test
+adonis_results_18s_wp_ludox <- adonis2(bray_18s_wp_ludox ~ Habitat, data = sampledf_18s_wp_ludox)
+adonis_results_18s_wp_ludox # Significance found at Pr(>F) = .001 (***)
+
+# Mason's Marina Only PCoA
+phylo_18s_ord_pcoa_mm_ludox <- ordinate(MM_phylo_18s_normalized_ludox, "PCoA", "bray")
+
+phylo_18s_pcoa_mm_ludox <- plot_ordination(MM_phylo_18s_normalized_ludox, phylo_18s_ord_pcoa_mm_ludox, type="samples", color="Habitat", shape = "SampleType",
+                                           title = "18S rRNA Ludox Mason's Marina - Meiofauna") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold"))
+
+phylo_18s_pcoa_mm_ludox$layers <- phylo_18s_pcoa_mm_ludox$layers[-1]
+
+phylo_18s_pcoa_mm_ludox
+
+
+# Calculate bray curtis distance matrix
+bray_18s_mm_ludox <- phyloseq::distance(MM_phylo_18s_normalized_ludox, method = "bray")
+
+# make a data frame from the CC_phylo_18s_normalized_ludox
+sampledf_18s_mm_ludox <- data.frame(sample_data(MM_phylo_18s_normalized_ludox))
+
+# Adonis test
+adonis_results_18s_mm_ludox <- adonis2(bray_18s_mm_ludox ~ Habitat, data = sampledf_18s_mm_ludox)
+adonis_results_18s_mm_ludox # Significance found at Pr(>F) = .002 (**)
+
+
+
+#NMDS
+# Campbell Cove Only NMDS
+phylo_18s_ord_nmds_cc_ludox <- ordinate(CC_phylo_18s_normalized_ludox, "NMDS", "bray")
+
+phylo_18s_nmds_cc_ludox <- plot_ordination(CC_phylo_18s_normalized_ludox, phylo_18s_ord_nmds_cc_ludox, type="samples", color="Habitat", shape = "SampleType",
+                                           title = "18S rRNA Ludox Campbell Cove - Meiofauna") +
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = 1, y = .7, label ="2D Stress: 0.20")
+
+phylo_18s_nmds_cc_ludox$layers <- phylo_18s_nmds_cc_ludox$layers[-1]
+
+phylo_18s_nmds_cc_ludox
+
+
+
+
+# Westside Park Only NMDS
+phylo_18s_ord_nmds_wp_ludox <- ordinate(WP_phylo_18s_normalized_ludox, "NMDS", "bray")
+
+phylo_18s_nmds_wp_ludox <- plot_ordination(WP_phylo_18s_normalized_ludox, phylo_18s_ord_nmds_wp_ludox, type="samples", color="Habitat", shape = "SampleType",
+                                           title = "18S rRNA Ludox Westside Park - Meiofauna") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = 0, y = 1, label ="2D Stress: 0.11")
+
+phylo_18s_nmds_wp_ludox$layers <- phylo_18s_nmds_wp_ludox$layers[-1]
+
+phylo_18s_nmds_wp_ludox
+
+
+
+
+# Mason's Marina Only NMDS
+phylo_18s_ord_nmds_mm_ludox <- ordinate(MM_phylo_18s_normalized_ludox, "NMDS", "bray")
+
+phylo_18s_nmds_mm_ludox <- plot_ordination(MM_phylo_18s_normalized_ludox, phylo_18s_ord_nmds_mm_ludox, type="samples", color="Habitat", shape = "SampleType",
+                                           title = "18S rRNA Ludox Mason's Marina - Meiofauna") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = 1, y = 1, label ="2D Stress: 0.20")
+
+phylo_18s_nmds_mm_ludox$layers <- phylo_18s_nmds_mm_ludox$layers[-1]
+
+phylo_18s_nmds_mm_ludox
+
+
+
+
+##################### Beta Diversity Nematodes Only ####################
+# PCoA 
+phylo_18s_nematode_ord_pcoa <- ordinate(phylo_normalized_nematoda_18s, "PCoA", "bray")
+phylo_18s_nematode_pcoa <- plot_ordination(phylo_normalized_nematoda_18s, phylo_18s_nematode_ord_pcoa, type="samples", color="Site", shape="Habitat",
+                                           title = "18S rRNA - Nematodes") + 
+  geom_point(size = 3) +
+  scale_color_manual(values = c("#C8AB83","#2E5266","#E43F6F"),breaks = c("Campbell Cove", "Westside Park", "Mason's Marina"))+
+  scale_shape_manual(values = c(1,16),
+                     name = "Habitat",
+                     breaks = c("Sea Grass", "Bare Sediment")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold"))
+
+phylo_18s_nematode_pcoa$layers <- phylo_18s_nematode_pcoa$layers[-1]
+
+phylo_18s_nematode_pcoa
+
+
+
+
+phylo_18s_nematode_pcoa_habitat <- plot_ordination(phylo_normalized_nematoda_18s, phylo_18s_nematode_ord_pcoa, type="samples", color="Habitat", shape="Site",
+                                                   title = "18S rRNA - Nematodes") + 
+  geom_point(size = 3) +
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  scale_shape_manual(values = c(15, 17, 19), breaks = c("Campbell Cove", "Westside Park", "Mason's Marina")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold"))
+
+phylo_18s_nematode_pcoa_habitat$layers <- phylo_18s_nematode_pcoa_habitat$layers[-1]
+
+phylo_18s_nematode_pcoa_habitat
+
+
+
+
+
+# NMDS Nematode
+phylo_18s_nematode_ord_nmds <- ordinate(phylo_normalized_nematoda_18s, "NMDS", "bray")
+phylo_18s_nematode_nmds <- plot_ordination(phylo_normalized_nematoda_18s, phylo_18s_nematode_ord_nmds, type="samples", color="Site", shape="Habitat",
+                                           title = "18S rRNA - Nematodes") + 
+  geom_point(size = 3) +
+  scale_color_manual(values = c("#C8AB83","#2E5266","#E43F6F"),breaks = c("Campbell Cove", "Westside Park", "Mason's Marina"))+
+  scale_shape_manual(values = c(1,16),
+                     name = "Habitat",
+                     breaks = c("Sea Grass", "Bare Sediment")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = 1, y = 1, label ="2D Stress: 0.20")
+
+phylo_18s_nematode_nmds$layers <- phylo_18s_nematode_nmds$layers[-1]
+
+phylo_18s_nematode_nmds
+
+
+
+
+phylo_18s_nematode_nmds_habitat <- plot_ordination(phylo_normalized_nematoda_18s, phylo_18s_nematode_ord_nmds, type="samples", color="Habitat", shape="Site",
+                                                   title = "18S rRNA - Nematodes") + 
+  geom_point(size = 3) +
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  scale_shape_manual(values = c(15, 17, 19), breaks = c("Campbell Cove", "Westside Park", "Mason's Marina")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = 1, y = 1, label ="2D Stress: 0.20")
+
+phylo_18s_nematode_nmds_habitat$layers <- phylo_18s_nematode_nmds_habitat$layers[-1]
+
+phylo_18s_nematode_nmds_habitat
+
+
+
+
+
+# Now by Location
+# Campbell Cove Only PCoA
+phylo_18s_ord_pcoa_cc_nematode <- ordinate(CC_phylo_18s_normalized_nematode, "PCoA", "bray")
+
+phylo_18s_pcoa_cc_nematode <- plot_ordination(CC_phylo_18s_normalized_nematode, phylo_18s_ord_pcoa_cc_nematode, type="samples", color="Habitat",
+                                              title = "18S rRNA Campbell Cove - Nematodes") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold"))
+
+phylo_18s_pcoa_cc_nematode$layers <- phylo_18s_pcoa_cc_nematode$layers[-1]
+
+phylo_18s_pcoa_cc_nematode
+
+
+# Westside Park Only PCoA
+phylo_18s_ord_pcoa_wp_nematode <- ordinate(WP_phylo_18s_normalized_nematode, "PCoA", "bray")
+
+phylo_18s_pcoa_wp_nematode <- plot_ordination(WP_phylo_18s_normalized_nematode, phylo_18s_ord_pcoa_wp_nematode, type="samples", color="Habitat",
+                                              title = "18S rRNA Westside Park - Nematodes") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold"))
+
+phylo_18s_pcoa_wp_nematode$layers <- phylo_18s_pcoa_wp_nematode$layers[-1]
+
+phylo_18s_pcoa_wp_nematode
+
+
+
+# Mason's Marina Only PCoA
+phylo_18s_ord_pcoa_mm_nematode <- ordinate(MM_phylo_18s_normalized_nematode, "PCoA", "bray")
+
+phylo_18s_pcoa_mm_nematode <- plot_ordination(MM_phylo_18s_normalized_nematode, phylo_18s_ord_pcoa_mm_nematode, type="samples", color="Habitat",
+                                              title = "18S rRNA Mason's Marina - Nematodes") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold"))
+
+phylo_18s_pcoa_mm_nematode$layers <- phylo_18s_pcoa_mm_nematode$layers[-1]
+
+phylo_18s_pcoa_mm_nematode
+
+
+
+
+
+#NMDS
+# Campbell Cove Only NMDS
+phylo_18s_ord_nmds_cc_nematode <- ordinate(CC_phylo_18s_normalized_nematode, "NMDS", "bray")
+
+phylo_18s_nmds_cc_nematode <- plot_ordination(CC_phylo_18s_normalized_nematode, phylo_18s_ord_nmds_cc_nematode, type="samples", color="Habitat",
+                                              title = "18S rRNA Campbell Cove - Nematodes") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = 1.5, y = 1, label ="2D Stress: 0.17")
+
+phylo_18s_nmds_cc_nematode$layers <- phylo_18s_nmds_cc_nematode$layers[-1]
+
+phylo_18s_nmds_cc_nematode
+
+
+
+
+# Westside Park Only NMDS
+phylo_18s_ord_nmds_wp_nematode <- ordinate(WP_phylo_18s_normalized_nematode, "NMDS", "bray")
+
+phylo_18s_nmds_wp_nematode <- plot_ordination(WP_phylo_18s_normalized_nematode, phylo_18s_ord_nmds_wp_nematode, type="samples", color="Habitat",
+                                              title = "18S rRNA Westside Park - Nematodes") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = -1, y = 1, label ="2D Stress: 0.12")
+
+phylo_18s_nmds_wp_nematode$layers <- phylo_18s_nmds_wp_nematode$layers[-1]
+
+phylo_18s_nmds_wp_nematode
+
+
+
+
+# Mason's Marina Only NMDS
+phylo_18s_ord_nmds_mm_nematode <- ordinate(MM_phylo_18s_normalized_nematode, "NMDS", "bray")
+
+phylo_18s_nmds_mm_nematode <- plot_ordination(MM_phylo_18s_normalized_nematode, phylo_18s_ord_nmds_mm_nematode, type="samples", color="Habitat",
+                                              title = "18S rRNA Mason's Marina - Nematodes") + 
+  scale_color_manual(values = c("saddlebrown","#00A572"),breaks = c("Bare Sediment", "Sea Grass")) +
+  theme_bw() +
+  theme(axis.title.y = element_text(angle = 90, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.title.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 14, color = "black", face = "bold")) + # adjusts text of y axis
+  theme(axis.text.y = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.5,size = 12, color = "black")) + # adjusts text of y axis
+  geom_point(size = 3) +
+  theme(legend.title = element_text(face = "bold")) +
+  theme(axis.line = element_line(color = "black"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  theme(plot.title = element_text(color = "black", face = "bold")) +
+  annotate("text", x = .8, y = .8, label ="2D Stress: 0.22")
+
+phylo_18s_nmds_mm_nematode$layers <- phylo_18s_nmds_mm_nematode$layers[-1]
+
+phylo_18s_nmds_mm_nematode
