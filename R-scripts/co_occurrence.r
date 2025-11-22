@@ -153,3 +153,38 @@ corrplot(mat, is.corr = TRUE, method = 'color', addCoef.col = 'black', addgrid.c
          tl.srt = 45, tl.col = "black", col = COL2('BrBG'),
          na.label = 'square', na.label.col = "white", number.cex = 0.2, tl.cex = 0.3)
 
+############ Exporting as igraph ###############
+
+matrix_for_export <- mat
+
+matrix_for_export[is.na(matrix_for_export)] <- 0
+
+matrix_export_df <- as.data.frame(matrix_for_export)
+
+write.csv(matrix_export_df, "co-occurence_matrix_04_threshold_01_sig.csv")
+
+bip_graph <- graph_from_incidence_matrix(
+  matrix_for_export,
+  weighted = TRUE,
+  mode = "all",
+)
+
+plot(bip_graph, layout = layout_on_sphere)
+
+# Edge list
+edges <- as_data_frame(bip_graph, what = "edges")
+write.csv(edges, "edges.csv", row.names = FALSE)
+
+# Node list
+nodes <- as_data_frame(bip_graph, what = "vertices")
+write.csv(nodes, "nodes.csv", row.names = FALSE)
+
+
+# Project to one-mode network (e.g., document similarities)
+proj <- bipartite_projection(bip_graph)
+doc_network <- proj$proj1
+
+# Export to Gephi (GraphML format)
+write_graph(bip_graph, "all_at_04_threshold.graphml", format = "graphml")
+
+write_graph(bip_graph, "new_net.graphml", format = "graphml")
