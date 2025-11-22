@@ -194,3 +194,162 @@ MM_phylo_18s_normalized_nematode <- microbiome::transform(MM_phylo_18s_nematode,
 phylo_18s_all_samples <- microbiome::transform(phylo_ludox_18s, "compositional")
 simple_ord_18s <- ordinate(phylo_18s_all_samples, "NMDS", "bray")
 plot_ordination(phylo_18s_all_samples, simple_ord_18s, type="samples", color="Site", shape="Habitat")#, label = "Description")
+
+###################### Plotting for Relative Abundance Top 20 and Top 10 Raw Sediment at Phylum ######################
+# Raw Sediment
+# Function to collapse a certain number of taxa into category others
+merge_top20_18s_raw <- function(dataframe_phylo, top=19){
+  transformed <- transform_sample_counts(dataframe_phylo, function(x) x/sum(x))
+  otu.table <- as.data.frame(otu_table(transformed))
+  otu.sort <- otu.table[order(rowMeans(otu.table), decreasing = TRUE),]
+  otu.list <- row.names(otu.sort[(top+1):nrow(otu.sort),])
+  merged <- merge_taxa(transformed, otu.list, 1)
+  for (i in 1:dim(tax_table(merged))[1]){
+    if (is.na(tax_table(merged)[i,2])){
+      taxa_names(merged)[i] <- "Others"
+      tax_table(merged)[i,1:23] <- "Others"} # 1:23 if there are species level
+  }
+  return(merged)
+}
+
+# Agglomerated taxa down to V14 rank 
+# Use tax_fix function to assign taxa names to lower ranks that are unknown
+temp_phylo_18s_raw <- phylo_raw_18s
+
+fix_phylo_18s_raw <- tax_fix(temp_phylo_18s_raw, unknowns = c("Unassigned", "uncultured", "Unkown", "uncultured eukaryote", "Unknown Family",
+                                                              "uncultured Cercozoa", "uncultured dinoflagellate"))
+
+glom_18s_raw <- tax_glom(fix_phylo_18s_raw, taxrank = "V14")
+
+# Run function on phyloseq object and make into data frame
+phy_18_raw_top20_V14 <- merge_top20_18s_raw(glom_18s_raw, top=19)
+
+phy_18_raw_top20_V14_df <- psmelt(phy_18_raw_top20_V14)
+
+write.csv(phy_18_raw_top20_V14_df, "phy_18_raw_top20_V14_df.csv")
+
+# Add common factors to use for plotting
+phy_18_raw_top20_agr = aggregate(Abundance~Sample+Site+Habitat+V14, data=phy_18_raw_top20_V14_df, FUN=mean) 
+unique(phy_18_raw_top20_agr$V14)
+
+# Organize color scales and factors to plot top10 taxa as barplots
+# List of 20 distinct colors
+colors_top20 <- c("#A6CEE3", "#579CC7", "#3688AD", "#8BC395", "#89CB6C", "#40A635", "#919D5F", "#F99392", "#EB494A","#F79C5D",
+                  "#FDA746", "#FE8205", "#E39970", "#BFA5CF", "#8861AC", "#917099", "#E7E099", "#DEB969", "#B15928", "gray")
+
+colors_top20_2 <- c("#9a6324", "#46f0f0", "#1F78B4", "#aaffc3", "#e6beff",  "#33A02C", "#4363d8", "#008080", "#FB9A99", "#e6194b",
+                  "#f032e6", "#bcf60c", "#fabebe","#f58231", "#ffe119", "#6A3D9A", "#000075", "#fffac8", "#800000","gray")
+
+
+# Create new labels for important factors
+habitat.labs <- c("Bare Sediment", "Sea Grass")
+names(habitat.labs) <- c("Bare Sediment", "Sea Grass")
+
+site.labs <- c("Campbell Cove", "Westside Park", "Mason's Marina")
+names(site.labs) <- c("Campbell Cove", "Westside Park", "Mason's Marina")
+
+# Put "Others" to the final of the Phylum list - top 20
+unique(phy_18_raw_top20_agr$V14)
+phy_18_raw_top20_agr$V14 <- factor(phy_18_raw_top20_agr$V14,
+                              levels = c("Ansanella natalensis V9", "Biecheleria V8", "Brachiopoda","Bysmatrum subsalsum V8", "Cocconeis placentula V9",
+                                         "Crustacea", "eukaryote marine clone ME1-22 V6", "Gonyaulax spinifera V9", "Haslea ostrearia V9", "Lankesteria V8",
+                                         "Lecudina V8", "Maullinia V6", "Minidiscus sp. V9","Nematoda", "Opephora sp. s0357 V8", 
+                                         "Polychaeta", "Rhabditophora","uncultured Cercozoa V7", "uncultured dinoflagellate V9", "Others"))
+
+# Reorder Site levels
+phy_18_raw_top20_agr$Site = factor(phy_18_raw_top20_agr$Site, levels=c("Campbell Cove","Westside Park","Mason's Marina"))
+
+# Plot by site - Phylum level top 20
+taxonomy_bar_18s_raw_top20_phylum <- ggplot(phy_18_raw_top20_agr, aes(x = Sample, y = Abundance, fill = V14)) +
+  facet_nested(. ~ Site+Habitat, scales = "free",
+               labeller = labeller(Site = site.labs, Habitat = habitat.labs)) +
+  geom_bar(stat = "identity", width = 0.95) + # adds to 100%
+  geom_text(aes(label = ifelse(round(Abundance*100) >= 5, paste(round(Abundance*100, digits = 0), "%"), "")), size = 2, position = position_stack(vjust = 0.5)) +
+  scale_fill_manual(values = colors_top20, name = "Raw Sediment Phylum") +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1, size = 10, face = "bold")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 10, vjust = 0.5, face = "bold")) + # adjusts text of x axis
+  theme(axis.title.y = element_text(face = "bold", size = 12)) +  # adjusts the title of y axis
+  theme(axis.title.x = element_text(face = "bold", size = 12)) + # adjusts the title of x axis
+  scale_y_continuous(labels=scales::percent, expand = c(0.0, 0.0)) + # plot as % and removes the internal margins
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(fill = "white")) + # removes the gridlines
+  guides(fill = guide_legend(reverse = FALSE, keywidth = 1, keyheight = 1)) + # Plot the legend
+  theme(legend.title = element_text(face = "bold", size =12)) + # # adjusts the title of the legend
+  ylab("Relative Abundance") + # add the title on y axis
+  xlab("Sample") + # add the title on x axis
+  theme(strip.background =element_rect(
+    color = "black",
+    fill = "white",
+    linewidth = 1,
+    linetype = "solid"),
+    strip.text = element_text(
+      size = 12, color = "black", face = "bold")) + # Format facet grid title 
+  scale_x_discrete(label = function(x) stringr::str_replace(x, "18S-bodega-bay_","")) 
+
+taxonomy_bar_18s_raw_top20_phylum
+
+#
+merge_top10_18s_raw <- function(phylo_raw_18s, top=9){
+  transformed <- transform_sample_counts(phylo_raw_18s, function(x) x/sum(x))
+  otu.table <- as.data.frame(otu_table(transformed))
+  otu.sort <- otu.table[order(rowMeans(otu.table), decreasing = TRUE),]
+  otu.list <- row.names(otu.sort[(top+1):nrow(otu.sort),])
+  merged <- merge_taxa(transformed, otu.list, 1)
+  for (i in 1:dim(tax_table(merged))[1]){
+    if (is.na(tax_table(merged)[i,2])){
+      taxa_names(merged)[i] <- "Others"
+      tax_table(merged)[i,1:23] <- "Others"} # 1:23 if there are species level
+  }
+  return(merged)
+}
+
+
+# Run function on phyloseq object and make into data frame
+phy_18_raw_top10_V14 <- merge_top20_18s_raw(glom_18s_raw, top=9)
+
+phy_18_raw_top10_V14_df <- psmelt(phy_18_raw_top10_V14)
+
+# Add common factors to use for plotting
+phy_18_raw_top10_agr = aggregate(Abundance~Sample+Site+Habitat+V14, data=phy_18_raw_top10_V14_df, FUN=mean) 
+unique(phy_18_raw_top10_agr$V14)
+
+# Organize color scales and factors to plot top10 taxa as barplots
+# List of 10 distinct colors
+colors_top10_2 <- c("#8c510a", "#bf812d", "#dfc27d", "#f6e8c3", "#f5f5f5", "#c7eae5", "#80cdc1", "#35978f", "#01665e", "gray")
+
+# Put "Others" to the final of the Phylum list - top 10
+unique(phy_18_raw_top10_agr$V14)
+phy_18_raw_top10_agr$V14 <- factor(phy_18_raw_top10_agr$V14,
+                                   levels = c("Ansanella natalensis V9","Crustacea", "eukaryote marine clone ME1-22 V6", "Gonyaulax spinifera V9","Lankesteria V8",
+                                              "Maullinia V6", "Minidiscus sp. V9","Nematoda",
+                                              "Polychaeta","Others"))
+
+# Reorder Site levels
+phy_18_raw_top10_agr$Site = factor(phy_18_raw_top10_agr$Site, levels=c("Campbell Cove","Westside Park","Mason's Marina"))
+
+# Plot by site - Class level top 10
+taxonomy_bar_18s_raw_top10_phylum <- ggplot(phy_18_raw_top10_agr, aes(x = Sample, y = Abundance, fill = V14)) +
+  facet_nested(. ~ Site+Habitat, scales = "free",
+               labeller = labeller(Site = site.labs, Habitat = habitat.labs)) +
+  geom_bar(stat = "identity", width = 0.95) + # adds to 100%
+  geom_text(aes(label = ifelse(round(Abundance*100) >= 5, paste(round(Abundance*100, digits = 0), "%"), "")), size = 2, position = position_stack(vjust = 0.5)) +
+  scale_fill_manual(values = colors_top10_2, name = "Raw Sediment Phylum") +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1, size = 10, face = "bold")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 10, vjust = 0.5, face = "bold")) + # adjusts text of x axis
+  theme(axis.title.y = element_text(face = "bold", size = 12)) +  # adjusts the title of y axis
+  theme(axis.title.x = element_text(face = "bold", size = 12)) + # adjusts the title of x axis
+  scale_y_continuous(labels=scales::percent, expand = c(0.0, 0.0)) + # plot as % and removes the internal margins
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(fill = "white")) + # removes the gridlines
+  guides(fill = guide_legend(reverse = FALSE, keywidth = 1, keyheight = 1)) + # Plot the legend
+  theme(legend.title = element_text(face = "bold", size =12)) + # # adjusts the title of the legend
+  ylab("Relative Abundance") + # add the title on y axis
+  xlab("Sample") + # add the title on x axis
+  theme(strip.background =element_rect(
+    color = "black",
+    fill = "white",
+    linewidth = 1,
+    linetype = "solid"),
+    strip.text = element_text(
+      size = 12, color = "black", face = "bold")) + # Format facet grid title 
+  scale_x_discrete(label = function(x) stringr::str_replace(x, "18S-bodega-bay_","")) 
+
+taxonomy_bar_18s_raw_top10_phylum
