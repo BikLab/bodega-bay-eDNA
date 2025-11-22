@@ -2306,3 +2306,1780 @@ ad_18s_raw_habitat <- alpha_div_18S_raw %>%
   theme(legend.position="none")
 
 ad_18s_raw_habitat
+
+##################### Aldex2 Campbell Cove Comparison ################################
+# All Samples
+# Make new phyloseq to edit without messing up the original
+phylo_18s_aldex_cc <- CC_phylo_18s
+
+# Use tax_fix to shift taxonomic names of higher ranks to lower ranks filled with NAs
+# Agglomerate taxa at genus level
+phylo_18s_aldex_cc <- tax_fix(phylo_18s_aldex_cc, unknowns = c("Unassigned", "uncultured", "Unkown", "uncultured eukaryote", 
+                                                               "Unknown Family", "uncultured organism"))
+
+phylo_18s_genus_cc <- tax_glom(phylo_18s_aldex_cc, taxrank = "V22")
+
+d1 <- psmelt(phylo_18s_genus_cc)
+
+# Run ALEDx2
+aldex2_18s_gen_cc <- ALDEx2::aldex(data.frame(phyloseq::otu_table(phylo_18s_genus_cc)),
+                                   phyloseq::sample_data(phylo_18s_genus_cc)$Habitat,
+                                   mc.samples=128, test="kw", effect=TRUE,include.sample.summary=FALSE, denom="all", verbose=FALSE)
+# Create data frame and format
+gen_otu_table_18s_cc <- data.frame(phyloseq::otu_table(phylo_18s_genus_cc))
+gen_otu_table_18s_cc <- rownames_to_column(gen_otu_table_18s_cc, var = "OTU")
+
+write.csv(aldex2_18s_gen_cc, "18s/Tables:Results/Aldex2 Genus/cc_aldex2_gen.csv")
+
+# Import results CSV and format
+aldex2_18s_result_cc <- read.csv("18s/Tables:Results/Aldex2 Genus/cc_aldex2_gen.csv")
+colnames(aldex2_18s_result_cc) <- c("OTU", "kw.ep", "kw.eBH", "glm.ep", "glm.eBH")
+
+# Create data frame for taxonomy 
+aldex_taxa_info_cc <- data.frame(tax_table(phylo_18s_genus_cc))
+aldex_taxa_info_cc <- aldex_taxa_info_cc %>%
+  rownames_to_column(var = "OTU")
+
+sample_tab_cc <- data.frame(sample_data(phylo_18s_genus_cc))
+
+# Export CSV 
+write.csv(aldex_taxa_info_cc, "18s/Tables:Results/Aldex2 Genus/cc_taxa_info.csv")
+
+# Import edited CSV
+aldex_taxa_info_cc <- read.csv("18s/Tables:Results/Aldex2 Genus/cc_taxa_info.csv")
+
+
+# Filter aldex2 results by sig kw.ep and join the taxanomic information
+sig_aldex2_18s_result_cc <- aldex2_18s_result_cc %>%
+  filter(kw.ep < 0.05) %>%
+  arrange(kw.ep, kw.eBH) %>%
+  dplyr::select(OTU, kw.ep, kw.eBH)
+sig_aldex2_18s_result_cc <- left_join(sig_aldex2_18s_result_cc, aldex_taxa_info_cc)
+write.csv(sig_aldex2_18s_result_cc, "18s/Tables:Results/Aldex2 Genus/cc_sig_aldex2_gen_result.csv")
+
+# Made changes to taxonomy names if needed 
+sig_aldex2_18s_result_cc <- read.csv("18s/Tables:Results/Aldex2 Genus/cc_sig_aldex2_gen_result.csv")
+
+# Create clr objects by using OTU ids, original otu table, and all significant OTUs
+sig_aldex2_18s_result_count_cc <- left_join(sig_aldex2_18s_result_cc, gen_otu_table_18s_cc)
+sig_aldex2_18s_result_count_cc <- sig_aldex2_18s_result_count_cc[, -1]
+write.csv(sig_aldex2_18s_result_count_cc, "18s/Tables:Results/Aldex2 Genus/cc_sig_aldex2_gen_result_count.csv")
+
+# Dropped taxonomic rank and formatted columns 
+clr_18s_cc <- sig_aldex2_18s_result_count_cc[, -(2:27)] 
+rownames(clr_18s_cc) <- clr_18s_cc$OTU
+clr_18s_cc <- clr_18s_cc[, -1]
+
+# Adjusting zeros on the matrix and applying log transformation
+shsk_18s_czm_cc <- cmultRepl(t(clr_18s_cc),  label=0, method="CZM")
+shsk_18s_czm_tv_cc <- t(apply(shsk_18s_czm_cc, 1, function(x){log(x) - mean(log(x))}))
+shsk_18s_czm_cc <- (apply(clr_18s_cc, 1, function(x){log(x+1) - mean(log(x+1))}))
+
+
+# Define palette color
+col_matrix <- colorRampPalette(brewer.pal(10, "BrBG"))(256)
+
+
+# Combine the heatmap and the annotation
+Z.Score.18s_cc <- scale(t(shsk_18s_czm_cc))
+
+# Define colors for each level of qualitative variables, i.e. locations and habitats
+# Create the heatmap annotation
+ha_cc_1 = HeatmapAnnotation(
+  Habitat = as.vector(sample_tab_cc$Habitat),
+  col = list(
+    Habitat = c("Bare Sediment" = "saddlebrown", "Sea Grass" = "#00A572")),
+  annotation_legend_param = list(
+    Habitat = list(
+      title = "Habitat",
+      at = c("Bare Sediment", "Sea Grass"),
+      labels = c ("BS", "SG")
+    )
+  ))
+
+
+# Organize total abundance and taxa name
+# Taxa name
+Z.Score.18s_name_cc <- as.data.frame(Z.Score.18s_cc)
+str(Z.Score.18s_name_cc)
+Z.Score.18s_name_cc <- rownames_to_column(Z.Score.18s_name_cc, var = "OTU")
+Z.Score.18s_name_cc <- left_join(Z.Score.18s_name_cc, aldex_taxa_info_cc)
+head(Z.Score.18s_name_cc)
+#Z.Score.gen_name <- Z.Score.gen_name[, -(84:90)] ###
+
+# Taxa abundance 
+gen_18s_otu_table_total_cc <- as.data.frame(gen_otu_table_18s_cc)
+gen_18s_otu_table_total_cc$Total <- rowSums(gen_otu_table_18s_cc[, -1])
+head(gen_18s_otu_table_total_cc)
+gen_18s_otu_table_total_cc <- gen_18s_otu_table_total_cc[, -(2:47)] ###
+
+Z.Score.18s_count_total_cc <- left_join(Z.Score.18s_name_cc, gen_18s_otu_table_total_cc)
+head(Z.Score.18s_count_total_cc)
+
+# Defining color scheme for row annotations
+abundance_col_fun = colorRamp2(c(0, 5000, 10000, 20000),
+                               c("#c7eae5",
+                                 "#80cdc1",
+                                 "#35978f",
+                                 "#01665e"))
+
+ha_right_gen_cc_1 = rowAnnotation(
+  Abundance = Z.Score.18s_count_total_cc$Total, border = FALSE, col = list(Abundance = abundance_col_fun))
+row_labels_gen_cc_1 = Z.Score.18s_count_total_cc$V22
+
+
+# Plot heatmap at the Genus level
+hm_cc <- Heatmap(Z.Score.18s_cc, name = "Z-score, CLR", col = col_matrix,
+                 column_title  = "18S rRNA for Campbell Cove", 
+                 column_title_gp = gpar(fontface = "bold", fontsize = 14),
+                 column_split = as.vector(as.vector(sample_tab_cc$Habitat)),
+                 #column_order = order(as.numeric(gsub("column", "", colnames(Z.Score.gen)))),
+                 border = TRUE,
+                 top_annotation = ha_cc_1,
+                 right_annotation = ha_right_gen_cc_1,
+                 row_title = "Genus",
+                 row_labels = row_labels_gen_cc_1,
+                 row_title_gp = gpar(fontsize = 10, fontface = "bold"),
+                 row_names_gp = gpar(fontsize = 6),
+                 column_names_gp = gpar(fontsize = 6),
+                 #row_order = order(row_labels_gen),
+                 rect_gp = gpar(col = "white", lwd = 1),
+                 show_column_names = FALSE,
+                 show_heatmap_legend = TRUE)
+
+hm_cc
+
+
+
+
+
+
+
+
+
+# Raw Sediment
+# Make new phyloseq to edit without messing up the original
+phylo_raw_aldex_cc <- CC_phylo_18s_raw
+
+# Use tax_fix to shift taxonomic names of higher ranks to lower ranks filled with NAs
+# Agglomerate taxa at genus level
+phylo_raw_aldex_cc <- tax_fix(phylo_raw_aldex_cc, unknowns = c("Unassigned", "uncultured", "Unkown", "uncultured eukaryote", 
+                                                               "Unknown Family", "uncultured organism"))
+
+phylo_raw_genus_cc <- tax_glom(phylo_raw_aldex_cc, taxrank = "V22")
+
+d1 <- psmelt(phylo_raw_genus_cc)
+
+# Run ALEDx2
+aldex2_raw_gen_cc <- ALDEx2::aldex(data.frame(phyloseq::otu_table(phylo_raw_genus_cc)),
+                                   phyloseq::sample_data(phylo_raw_genus_cc)$Habitat,
+                                   mc.samples=128, test="kw", effect=TRUE,include.sample.summary=FALSE, denom="all", verbose=FALSE)
+# Create data frame and format
+gen_otu_table_raw_cc <- data.frame(phyloseq::otu_table(phylo_raw_genus_cc))
+gen_otu_table_raw_cc <- rownames_to_column(gen_otu_table_raw_cc, var = "OTU")
+
+write.csv(aldex2_raw_gen_cc, "18s/Tables:Results/Aldex2 Genus/cc_aldex2_gen_raw.csv")
+
+# Import results CSV and format
+aldex2_raw_result_cc <- read.csv("18s/Tables:Results/Aldex2 Genus/cc_aldex2_gen_raw.csv")
+colnames(aldex2_raw_result_cc) <- c("OTU", "kw.ep", "kw.eBH", "glm.ep", "glm.eBH")
+
+# Create data frame for taxonomy 
+aldex_taxa_info_cc_raw <- data.frame(tax_table(phylo_raw_genus_cc))
+aldex_taxa_info_cc_raw <- aldex_taxa_info_cc_raw %>%
+  rownames_to_column(var = "OTU")
+
+sample_tab_cc_raw <- data.frame(sample_data(phylo_raw_genus_cc))
+
+# Export CSV 
+write.csv(aldex_taxa_info_cc, "18s/Tables:Results/Aldex2 Genus/cc_taxa_info_raw.csv")
+
+# Import edited CSV
+aldex_taxa_info_cc <- read.csv("18s/Tables:Results/Aldex2 Genus/cc_taxa_info_raw.csv")
+
+
+# Filter aldex2 results by sig kw.ep and join the taxanomic information
+sig_aldex2_raw_result_cc <- aldex2_raw_result_cc %>%
+  filter(kw.ep < 0.05) %>%
+  arrange(kw.ep, kw.eBH) %>%
+  dplyr::select(OTU, kw.ep, kw.eBH)
+sig_aldex2_raw_result_cc <- left_join(sig_aldex2_raw_result_cc, aldex_taxa_info_cc_raw)
+write.csv(sig_aldex2_raw_result_cc, "18s/Tables:Results/Aldex2 Genus/cc_sig_aldex2_gen_result_raw.csv")
+
+# Made changes to taxonomy names if needed 
+sig_aldex2_raw_result_cc <- read.csv("18s/Tables:Results/Aldex2 Genus/cc_sig_aldex2_gen_result_raw.csv")
+
+# Create clr objects by using OTU ids, original otu table, and all significant OTUs
+sig_aldex2_raw_result_count_cc <- left_join(sig_aldex2_raw_result_cc, gen_otu_table_raw_cc)
+sig_aldex2_raw_result_count_cc <- sig_aldex2_raw_result_count_cc[, -1]
+write.csv(sig_aldex2_raw_result_count_cc, "18s/Tables:Results/Aldex2 Genus/cc_sig_aldex2_gen_result_count_raw.csv")
+
+# Dropped taxonomic rank and formatted columns 
+clr_raw_cc <- sig_aldex2_raw_result_count_cc[, -(2:26)] 
+rownames(clr_raw_cc) <- clr_raw_cc$OTU
+clr_raw_cc <- clr_raw_cc[, -1]
+
+# Adjusting zeros on the matrix and applying log transformation
+shsk_raw_czm_cc <- cmultRepl(t(clr_raw_cc),  label=0, method="CZM")
+shsk_raw_czm_tv_cc <- t(apply(shsk_raw_czm_cc, 1, function(x){log(x) - mean(log(x))}))
+shsk_raw_czm_cc <- (apply(clr_raw_cc, 1, function(x){log(x+1) - mean(log(x+1))}))
+
+
+# Define palette color
+col_matrix <- colorRampPalette(brewer.pal(10, "BrBG"))(256)
+
+
+# Combine the heatmap and the annotation
+Z.Score.raw_cc <- scale(t(shsk_raw_czm_cc))
+
+# Define colors for each level of qualitative variables, i.e. locations and habitats
+# Create the heatmap annotation
+ha_cc_2 = HeatmapAnnotation(
+  Habitat = as.vector(sample_tab_cc_raw$Habitat),
+  col = list(
+    Habitat = c("Bare Sediment" = "saddlebrown", "Sea Grass" = "#00A572")),
+  annotation_legend_param = list(
+    Habitat = list(
+      title = "Habitat",
+      at = c("Bare Sediment", "Sea Grass"),
+      labels = c ("BS", "SG")
+    )
+  ))
+
+
+# Organize total abundance and taxa name
+# Taxa name
+Z.Score.raw_name_cc <- as.data.frame(Z.Score.raw_cc)
+str(Z.Score.raw_name_cc)
+Z.Score.raw_name_cc <- rownames_to_column(Z.Score.raw_name_cc, var = "OTU")
+Z.Score.raw_name_cc <- left_join(Z.Score.raw_name_cc, aldex_taxa_info_cc_raw)
+head(Z.Score.raw_name_cc)
+#Z.Score.gen_name <- Z.Score.gen_name[, -(84:90)] ###
+
+# Taxa abundance 
+gen_raw_otu_table_total_cc <- as.data.frame(gen_otu_table_raw_cc)
+gen_raw_otu_table_total_cc$Total <- rowSums(gen_otu_table_raw_cc[, -1])
+head(gen_raw_otu_table_total_cc)
+gen_raw_otu_table_total_cc <- gen_raw_otu_table_total_cc[, -(2:21)] ###
+
+Z.Score.raw_count_total_cc <- left_join(Z.Score.raw_name_cc, gen_raw_otu_table_total_cc)
+head(Z.Score.raw_count_total_cc)
+
+# Defining color scheme for row annotations
+abundance_col_fun = colorRamp2(c(0, 5000, 10000, 20000),
+                               c("#c7eae5",
+                                 "#80cdc1",
+                                 "#35978f",
+                                 "#01665e"))
+
+ha_right_gen_cc_2 = rowAnnotation(
+  Abundance = Z.Score.raw_count_total_cc$Total, border = FALSE, col = list(Abundance = abundance_col_fun))
+row_labels_gen_cc_2 = Z.Score.raw_count_total_cc$V22
+
+
+# Plot heatmap at the Genus level
+hm_cc_raw <- Heatmap(Z.Score.raw_cc, name = "Z-score, CLR", col = col_matrix,
+                     column_title  = "18S rRNA Raw Sediment for Campbell Cove", 
+                     column_title_gp = gpar(fontface = "bold", fontsize = 14),
+                     column_split = as.vector(as.vector(sample_tab_cc_raw$Habitat)),
+                     #column_order = order(as.numeric(gsub("column", "", colnames(Z.Score.gen)))),
+                     border = TRUE,
+                     top_annotation = ha_cc_2,
+                     right_annotation = ha_right_gen_cc_2,
+                     row_title = "Genus",
+                     row_labels = row_labels_gen_cc_2,
+                     row_title_gp = gpar(fontsize = 10, fontface = "bold"),
+                     row_names_gp = gpar(fontsize = 6),
+                     column_names_gp = gpar(fontsize = 6),
+                     #row_order = order(row_labels_gen),
+                     rect_gp = gpar(col = "white", lwd = 1),
+                     show_column_names = FALSE,
+                     show_heatmap_legend = TRUE)
+
+hm_cc_raw
+
+
+
+
+
+
+
+
+
+# Ludox
+# Make new phyloseq to edit without messing up the original
+phylo_ludox_aldex_cc <- CC_phylo_18s_ludox
+
+# Use tax_fix to shift taxonomic names of higher ranks to lower ranks filled with NAs
+# Agglomerate taxa at genus level
+phylo_ludox_aldex_cc <- tax_fix(phylo_ludox_aldex_cc, unknowns = c("Unassigned", "uncultured", "Unkown", "uncultured eukaryote", 
+                                                                   "Unknown Family", "uncultured organism"))
+
+phylo_ludox_genus_cc <- tax_glom(phylo_ludox_aldex_cc, taxrank = "V22")
+
+d1 <- psmelt(phylo_ludox_genus_cc)
+
+# Run ALEDx2
+aldex2_ludox_gen_cc <- ALDEx2::aldex(data.frame(phyloseq::otu_table(phylo_ludox_genus_cc)),
+                                     phyloseq::sample_data(phylo_ludox_genus_cc)$Habitat,
+                                     mc.samples=128, test="kw", effect=TRUE,include.sample.summary=FALSE, denom="all", verbose=FALSE)
+# Create data frame and format
+gen_otu_table_ludox_cc <- data.frame(phyloseq::otu_table(phylo_ludox_genus_cc))
+gen_otu_table_ludox_cc <- rownames_to_column(gen_otu_table_ludox_cc, var = "OTU")
+
+write.csv(aldex2_ludox_gen_cc, "18s/Tables:Results/Aldex2 Genus/cc_aldex2_gen_ludox.csv")
+
+# Import results CSV and format
+aldex2_ludox_result_cc <- read.csv("18s/Tables:Results/Aldex2 Genus/cc_aldex2_gen_ludox.csv")
+colnames(aldex2_ludox_result_cc) <- c("OTU", "kw.ep", "kw.eBH", "glm.ep", "glm.eBH")
+
+# Create data frame for taxonomy 
+aldex_taxa_info_cc_ludox <- data.frame(tax_table(phylo_ludox_genus_cc))
+aldex_taxa_info_cc_ludox <- aldex_taxa_info_cc_ludox %>%
+  rownames_to_column(var = "OTU")
+
+sample_tab_cc_ludox <- data.frame(sample_data(phylo_ludox_genus_cc))
+
+# Export CSV 
+write.csv(aldex_taxa_info_cc, "18s/Tables:Results/Aldex2 Genus/cc_taxa_info_ludox.csv")
+
+# Import edited CSV
+aldex_taxa_info_cc <- read.csv("18s/Tables:Results/Aldex2 Genus/cc_taxa_info_ludox.csv")
+
+
+# Filter aldex2 results by sig kw.ep and join the taxanomic information
+sig_aldex2_ludox_result_cc <- aldex2_ludox_result_cc %>%
+  filter(kw.ep < 0.05) %>%
+  arrange(kw.ep, kw.eBH) %>%
+  dplyr::select(OTU, kw.ep, kw.eBH)
+sig_aldex2_ludox_result_cc <- left_join(sig_aldex2_ludox_result_cc, aldex_taxa_info_cc_ludox)
+write.csv(sig_aldex2_ludox_result_cc, "18s/Tables:Results/Aldex2 Genus/cc_sig_aldex2_gen_result_ludox.csv")
+
+# Made changes to taxonomy names if needed 
+sig_aldex2_ludox_result_cc <- read.csv("18s/Tables:Results/Aldex2 Genus/cc_sig_aldex2_gen_result_ludox.csv")
+
+# Create clr objects by using OTU ids, original otu table, and all significant OTUs
+sig_aldex2_ludox_result_count_cc <- left_join(sig_aldex2_ludox_result_cc, gen_otu_table_ludox_cc)
+sig_aldex2_ludox_result_count_cc <- sig_aldex2_ludox_result_count_cc[, -1]
+write.csv(sig_aldex2_ludox_result_count_cc, "18s/Tables:Results/Aldex2 Genus/cc_sig_aldex2_gen_result_count_ludox.csv")
+
+# Dropped taxonomic rank and formatted columns 
+clr_ludox_cc <- sig_aldex2_ludox_result_count_cc[, -(2:26)] 
+rownames(clr_ludox_cc) <- clr_ludox_cc$OTU
+clr_ludox_cc <- clr_ludox_cc[, -1]
+
+# Adjusting zeros on the matrix and applying log transformation
+shsk_ludox_czm_cc <- cmultRepl(t(clr_ludox_cc),  label=0, method="CZM")
+shsk_ludox_czm_tv_cc <- t(apply(shsk_ludox_czm_cc, 1, function(x){log(x) - mean(log(x))}))
+shsk_ludox_czm_cc <- (apply(clr_ludox_cc, 1, function(x){log(x+1) - mean(log(x+1))}))
+
+
+# Define palette color
+col_matrix <- colorRampPalette(brewer.pal(10, "BrBG"))(256)
+
+
+# Combine the heatmap and the annotation
+Z.Score.ludox_cc <- scale(t(shsk_ludox_czm_cc))
+
+# Define colors for each level of qualitative variables, i.e. locations and habitats
+# Create the heatmap annotation
+ha_cc_3 = HeatmapAnnotation(
+  Habitat = as.vector(sample_tab_cc_ludox$Habitat),
+  col = list(
+    Habitat = c("Bare Sediment" = "saddlebrown", "Sea Grass" = "#00A572")),
+  annotation_legend_param = list(
+    Habitat = list(
+      title = "Habitat",
+      at = c("Bare Sediment", "Sea Grass"),
+      labels = c ("BS", "SG")
+    )
+  ))
+
+
+# Organize total abundance and taxa name
+# Taxa name
+Z.Score.ludox_name_cc <- as.data.frame(Z.Score.ludox_cc)
+str(Z.Score.ludox_name_cc)
+Z.Score.ludox_name_cc <- rownames_to_column(Z.Score.ludox_name_cc, var = "OTU")
+Z.Score.ludox_name_cc <- left_join(Z.Score.ludox_name_cc, aldex_taxa_info_cc_ludox)
+head(Z.Score.ludox_name_cc)
+#Z.Score.gen_name <- Z.Score.gen_name[, -(84:90)] ###
+
+# Taxa abundance 
+gen_ludox_otu_table_total_cc <- as.data.frame(gen_otu_table_ludox_cc)
+gen_ludox_otu_table_total_cc$Total <- rowSums(gen_otu_table_ludox_cc[, -1])
+head(gen_ludox_otu_table_total_cc)
+gen_ludox_otu_table_total_cc <- gen_ludox_otu_table_total_cc[, -(2:23)] ###
+
+Z.Score.ludox_count_total_cc <- left_join(Z.Score.ludox_name_cc, gen_ludox_otu_table_total_cc)
+head(Z.Score.ludox_count_total_cc)
+
+# Defining color scheme for row annotations
+abundance_col_fun = colorRamp2(c(0, 5000, 10000, 20000),
+                               c("#c7eae5",
+                                 "#80cdc1",
+                                 "#35978f",
+                                 "#01665e"))
+
+ha_right_gen_cc_3 = rowAnnotation(
+  Abundance = Z.Score.ludox_count_total_cc$Total, border = FALSE, col = list(Abundance = abundance_col_fun))
+row_labels_gen_cc_3 = Z.Score.ludox_count_total_cc$V22
+
+
+# Plot heatmap at the Genus level
+hm_cc_ludox <- Heatmap(Z.Score.ludox_cc, name = "Z-score, CLR", col = col_matrix,
+                       column_title  = "18S rRNA Ludox for Campbell Cove", 
+                       column_title_gp = gpar(fontface = "bold", fontsize = 14),
+                       #column_split = as.vector(as.vector(sample_tab_cc_ludox$Habitat)),
+                       #column_order = order(as.numeric(gsub("column", "", colnames(Z.Score.gen)))),
+                       border = TRUE,
+                       top_annotation = ha_cc_3,
+                       right_annotation = ha_right_gen_cc_3,
+                       row_title = "Genus",
+                       row_labels = row_labels_gen_cc_3,
+                       row_title_gp = gpar(fontsize = 10, fontface = "bold"),
+                       row_names_gp = gpar(fontsize = 6),
+                       column_names_gp = gpar(fontsize = 6),
+                       #row_order = order(row_labels_gen),
+                       rect_gp = gpar(col = "white", lwd = 1),
+                       show_column_names = FALSE,
+                       show_heatmap_legend = TRUE)
+
+hm_cc_ludox
+
+
+
+
+
+
+
+
+
+
+# Nematodes
+# Make new phyloseq to edit without messing up the original
+phylo_nemaotde_aldex_cc <- CC_phylo_18s_nematode
+
+# Use tax_fix to shift taxonomic names of higher ranks to lower ranks filled with NAs
+# Agglomerate taxa at genus level
+phylo_nemaotde_aldex_cc <- tax_fix(phylo_nemaotde_aldex_cc, unknowns = c("Unassigned", "uncultured", "Unkown", "uncultured eukaryote", 
+                                                                         "Unknown Family", "uncultured organism"))
+
+phylo_nemaotde_genus_cc <- tax_glom(phylo_nemaotde_aldex_cc, taxrank = "V22")
+
+d1 <- psmelt(phylo_nemaotde_genus_cc)
+
+# Run ALEDx2
+aldex2_nemaotde_gen_cc <- ALDEx2::aldex(data.frame(phyloseq::otu_table(phylo_nemaotde_genus_cc)),
+                                        phyloseq::sample_data(phylo_nemaotde_genus_cc)$Habitat,
+                                        mc.samples=128, test="kw", effect=TRUE,include.sample.summary=FALSE, denom="all", verbose=FALSE)
+# Create data frame and format
+gen_otu_table_nemaotde_cc <- data.frame(phyloseq::otu_table(phylo_nemaotde_genus_cc))
+gen_otu_table_nemaotde_cc <- rownames_to_column(gen_otu_table_nemaotde_cc, var = "OTU")
+
+write.csv(aldex2_nemaotde_gen_cc, "18s/Tables:Results/Aldex2 Genus/cc_aldex2_gen_nemaotde.csv")
+
+# Import results CSV and format
+aldex2_nemaotde_result_cc <- read.csv("18s/Tables:Results/Aldex2 Genus/cc_aldex2_gen_nemaotde.csv")
+colnames(aldex2_nemaotde_result_cc) <- c("OTU", "kw.ep", "kw.eBH", "glm.ep", "glm.eBH")
+
+# Create data frame for taxonomy 
+aldex_taxa_info_cc_nemaotde <- data.frame(tax_table(phylo_nemaotde_genus_cc))
+aldex_taxa_info_cc_nemaotde <- aldex_taxa_info_cc_nemaotde %>%
+  rownames_to_column(var = "OTU")
+
+sample_tab_cc_nemaotde <- data.frame(sample_data(phylo_nemaotde_genus_cc))
+
+# Export CSV 
+write.csv(aldex_taxa_info_cc, "18s/Tables:Results/Aldex2 Genus/cc_taxa_info_nemaotde.csv")
+
+# Import edited CSV
+aldex_taxa_info_cc <- read.csv("18s/Tables:Results/Aldex2 Genus/cc_taxa_info_nemaotde.csv")
+
+
+# Filter aldex2 results by sig kw.ep and join the taxanomic information
+sig_aldex2_nemaotde_result_cc <- aldex2_nemaotde_result_cc %>%
+  filter(kw.ep < 0.05) %>%
+  arrange(kw.ep, kw.eBH) %>%
+  dplyr::select(OTU, kw.ep, kw.eBH)
+sig_aldex2_nemaotde_result_cc <- left_join(sig_aldex2_nemaotde_result_cc, aldex_taxa_info_cc_nemaotde)
+write.csv(sig_aldex2_nemaotde_result_cc, "18s/Tables:Results/Aldex2 Genus/cc_sig_aldex2_gen_result_nemaotde.csv")
+
+# Made changes to taxonomy names if needed 
+sig_aldex2_nemaotde_result_cc <- read.csv("18s/Tables:Results/Aldex2 Genus/cc_sig_aldex2_gen_result_nemaotde.csv")
+
+# Create clr objects by using OTU ids, original otu table, and all significant OTUs
+sig_aldex2_nemaotde_result_count_cc <- left_join(sig_aldex2_nemaotde_result_cc, gen_otu_table_nemaotde_cc)
+sig_aldex2_nemaotde_result_count_cc <- sig_aldex2_nemaotde_result_count_cc[, -1]
+write.csv(sig_aldex2_nemaotde_result_count_cc, "18s/Tables:Results/Aldex2 Genus/cc_sig_aldex2_gen_result_count_nemaotde.csv")
+
+# Dropped taxonomic rank and formatted columns 
+clr_nemaotde_cc <- sig_aldex2_nemaotde_result_count_cc[, -(2:26)] 
+rownames(clr_nemaotde_cc) <- clr_nemaotde_cc$OTU
+clr_nemaotde_cc <- clr_nemaotde_cc[, -1]
+
+# Adjusting zeros on the matrix and applying log transformation
+shsk_nemaotde_czm_cc <- cmultRepl(t(clr_nemaotde_cc),  label=0, method="CZM")
+shsk_nemaotde_czm_tv_cc <- t(apply(shsk_nemaotde_czm_cc, 1, function(x){log(x) - mean(log(x))}))
+shsk_nemaotde_czm_cc <- (apply(clr_nemaotde_cc, 1, function(x){log(x+1) - mean(log(x+1))}))
+
+
+# Define palette color
+col_matrix <- colorRampPalette(brewer.pal(10, "BrBG"))(256)
+
+
+# Combine the heatmap and the annotation
+Z.Score.nemaotde_cc <- scale(t(shsk_nemaotde_czm_cc))
+
+# Define colors for each level of qualitative variables, i.e. locations and habitats
+# Create the heatmap annotation
+ha_cc_4 = HeatmapAnnotation(
+  Habitat = as.vector(sample_tab_cc_nemaotde$Habitat),
+  col = list(
+    Habitat = c("Bare Sediment" = "saddlebrown", "Sea Grass" = "#00A572")),
+  annotation_legend_param = list(
+    Habitat = list(
+      title = "Habitat",
+      at = c("Bare Sediment", "Sea Grass"),
+      labels = c ("BS", "SG")
+    )
+  ))
+
+
+# Organize total abundance and taxa name
+# Taxa name
+Z.Score.nemaotde_name_cc <- as.data.frame(Z.Score.nemaotde_cc)
+str(Z.Score.nemaotde_name_cc)
+Z.Score.nemaotde_name_cc <- rownames_to_column(Z.Score.nemaotde_name_cc, var = "OTU")
+Z.Score.nemaotde_name_cc <- left_join(Z.Score.nemaotde_name_cc, aldex_taxa_info_cc_nemaotde)
+head(Z.Score.nemaotde_name_cc)
+#Z.Score.gen_name <- Z.Score.gen_name[, -(84:90)] ###
+
+# Taxa abundance 
+gen_nemaotde_otu_table_total_cc <- as.data.frame(gen_otu_table_nemaotde_cc)
+gen_nemaotde_otu_table_total_cc$Total <- rowSums(gen_otu_table_nemaotde_cc[, -1])
+head(gen_nemaotde_otu_table_total_cc)
+gen_nemaotde_otu_table_total_cc <- gen_nemaotde_otu_table_total_cc[, -(2:25)] ###
+
+Z.Score.nemaotde_count_total_cc <- left_join(Z.Score.nemaotde_name_cc, gen_nemaotde_otu_table_total_cc)
+head(Z.Score.nemaotde_count_total_cc)
+
+# Defining color scheme for row annotations
+abundance_col_fun = colorRamp2(c(0, 2000, 10000, 20000),
+                               c("#c7eae5",
+                                 "#80cdc1",
+                                 "#35978f",
+                                 "#01665e"))
+
+ha_right_gen_cc_4 = rowAnnotation(
+  Abundance = Z.Score.nemaotde_count_total_cc$Total, border = FALSE, col = list(Abundance = abundance_col_fun))
+row_labels_gen_cc_4 = Z.Score.nemaotde_count_total_cc$V22
+
+
+# Plot heatmap at the Genus level
+hm_cc_nemaotde <- Heatmap(Z.Score.nemaotde_cc, name = "Z-score, CLR", col = col_matrix,
+                          column_title  = "Nematodes Only From Campbell Cove", 
+                          column_title_gp = gpar(fontface = "bold", fontsize = 14),
+                          #column_split = as.vector(as.vector(sample_tab_cc_nemaotde$Habitat)),
+                          #column_order = order(as.numeric(gsub("column", "", colnames(Z.Score.gen)))),
+                          border = TRUE,
+                          top_annotation = ha_cc_4,
+                          right_annotation = ha_right_gen_cc_4,
+                          row_title = "Genus",
+                          row_labels = row_labels_gen_cc_4,
+                          row_title_gp = gpar(fontsize = 10, fontface = "bold"),
+                          row_names_gp = gpar(fontsize = 6),
+                          column_names_gp = gpar(fontsize = 6),
+                          #row_order = order(row_labels_gen),
+                          rect_gp = gpar(col = "white", lwd = 1),
+                          show_column_names = FALSE,
+                          show_heatmap_legend = TRUE)
+
+hm_cc_nemaotde
+
+
+
+
+##################### Aldex2 Westside Park Comparison ################################
+# All Samples
+# Make new phyloseq to edit without messing up the original
+phylo_18s_aldex_wp <- WP_phylo_18s
+
+# Use tax_fix to shift taxonomic names of higher ranks to lower ranks filled with NAs
+# Agglomerate taxa at genus level
+phylo_18s_aldex_wp <- tax_fix(phylo_18s_aldex_wp, unknowns = c("Unassigned", "uncultured", "Unkown", "uncultured eukaryote", 
+                                                               "Unknown Family", "uncultured organism"))
+
+phylo_18s_genus_wp <- tax_glom(phylo_18s_aldex_wp, taxrank = "V22")
+
+d1 <- psmelt(phylo_18s_genus_wp)
+
+# Run ALEDx2
+aldex2_18s_gen_wp <- ALDEx2::aldex(data.frame(phyloseq::otu_table(phylo_18s_genus_wp)),
+                                   phyloseq::sample_data(phylo_18s_genus_wp)$Habitat,
+                                   mc.samples=128, test="kw", effect=TRUE,include.sample.summary=FALSE, denom="all", verbose=FALSE)
+# Create data frame and format
+gen_otu_table_18s_wp <- data.frame(phyloseq::otu_table(phylo_18s_genus_wp))
+gen_otu_table_18s_wp <- rownames_to_column(gen_otu_table_18s_wp, var = "OTU")
+
+write.csv(aldex2_18s_gen_wp, "18s/Tables:Results/Aldex2 Genus/wp_aldex2_gen.csv")
+
+# Import results CSV and format
+aldex2_18s_result_wp <- read.csv("18s/Tables:Results/Aldex2 Genus/wp_aldex2_gen.csv")
+colnames(aldex2_18s_result_wp) <- c("OTU", "kw.ep", "kw.eBH", "glm.ep", "glm.eBH")
+
+# Create data frame for taxonomy 
+aldex_taxa_info_wp <- data.frame(tax_table(phylo_18s_genus_wp))
+aldex_taxa_info_wp <- aldex_taxa_info_wp %>%
+  rownames_to_column(var = "OTU")
+
+sample_tab_wp <- data.frame(sample_data(phylo_18s_genus_wp))
+
+# Export CSV 
+write.csv(aldex_taxa_info_wp, "18s/Tables:Results/Aldex2 Genus/wp_taxa_info.csv")
+
+# Import edited CSV
+aldex_taxa_info_wp <- read.csv("18s/Tables:Results/Aldex2 Genus/wp_taxa_info.csv")
+
+
+# Filter aldex2 results by sig kw.ep and join the taxanomic information
+sig_aldex2_18s_result_wp <- aldex2_18s_result_wp %>%
+  filter(kw.ep < 0.05) %>%
+  arrange(kw.ep, kw.eBH) %>%
+  dplyr::select(OTU, kw.ep, kw.eBH)
+sig_aldex2_18s_result_wp <- left_join(sig_aldex2_18s_result_wp, aldex_taxa_info_wp)
+write.csv(sig_aldex2_18s_result_wp, "18s/Tables:Results/Aldex2 Genus/wp_sig_aldex2_gen_result.csv")
+
+# Made changes to taxonomy names if needed 
+sig_aldex2_18s_result_wp <- read.csv("18s/Tables:Results/Aldex2 Genus/wp_sig_aldex2_gen_result.csv")
+
+# Create clr objects by using OTU ids, original otu table, and all significant OTUs
+sig_aldex2_18s_result_count_wp <- left_join(sig_aldex2_18s_result_wp, gen_otu_table_18s_wp)
+sig_aldex2_18s_result_count_wp <- sig_aldex2_18s_result_count_wp[, -1]
+write.csv(sig_aldex2_18s_result_count_wp, "18s/Tables:Results/Aldex2 Genus/wp_sig_aldex2_gen_result_count.csv")
+
+# Dropped taxonomic rank and formatted columns 
+clr_18s_wp <- sig_aldex2_18s_result_count_wp[, -(2:27)] 
+rownames(clr_18s_wp) <- clr_18s_wp$OTU
+clr_18s_wp <- clr_18s_wp[, -1]
+
+# Adjusting zeros on the matrix and applying log transformation
+shsk_18s_czm_wp <- cmultRepl(t(clr_18s_wp),  label=0, method="CZM")
+shsk_18s_czm_tv_wp <- t(apply(shsk_18s_czm_wp, 1, function(x){log(x) - mean(log(x))}))
+shsk_18s_czm_wp <- (apply(clr_18s_wp, 1, function(x){log(x+1) - mean(log(x+1))}))
+
+
+# Define palette color
+col_matrix <- colorRampPalette(brewer.pal(10, "BrBG"))(256)
+
+
+# Combine the heatmap and the annotation
+Z.Score.18s_wp <- scale(t(shsk_18s_czm_wp))
+
+# Define colors for each level of qualitative variables, i.e. locations and habitats
+# Create the heatmap annotation
+ha_wp_1 = HeatmapAnnotation(
+  Habitat = as.vector(sample_tab_wp$Habitat),
+  col = list(
+    Habitat = c("Bare Sediment" = "saddlebrown", "Sea Grass" = "#00A572")),
+  annotation_legend_param = list(
+    Habitat = list(
+      title = "Habitat",
+      at = c("Bare Sediment", "Sea Grass"),
+      labels = c ("BS", "SG")
+    )
+  ))
+
+
+# Organize total abundance and taxa name
+# Taxa name
+Z.Score.18s_name_wp <- as.data.frame(Z.Score.18s_wp)
+str(Z.Score.18s_name_wp)
+Z.Score.18s_name_wp <- rownames_to_column(Z.Score.18s_name_wp, var = "OTU")
+Z.Score.18s_name_wp <- left_join(Z.Score.18s_name_wp, aldex_taxa_info_wp)
+head(Z.Score.18s_name_wp)
+#Z.Score.gen_name <- Z.Score.gen_name[, -(84:90)] ###
+
+# Taxa abundance 
+gen_18s_otu_table_total_wp <- as.data.frame(gen_otu_table_18s_wp)
+gen_18s_otu_table_total_wp$Total <- rowSums(gen_otu_table_18s_wp[, -1])
+head(gen_18s_otu_table_total_wp)
+gen_18s_otu_table_total_wp <- gen_18s_otu_table_total_wp[, -(2:72)] ###
+
+Z.Score.18s_count_total_wp <- left_join(Z.Score.18s_name_wp, gen_18s_otu_table_total_wp)
+head(Z.Score.18s_count_total_wp)
+
+# Defining color scheme for row annotations
+abundance_col_fun = colorRamp2(c(0, 5000, 10000, 20000),
+                               c("#c7eae5",
+                                 "#80cdc1",
+                                 "#35978f",
+                                 "#01665e"))
+
+ha_right_gen_wp_1 = rowAnnotation(
+  Abundance = Z.Score.18s_count_total_wp$Total, border = FALSE, col = list(Abundance = abundance_col_fun))
+row_labels_gen_wp_1 = Z.Score.18s_count_total_wp$V22
+
+
+# Plot heatmap at the Genus level
+hm_wp <- Heatmap(Z.Score.18s_wp, name = "Z-score, CLR", col = col_matrix,
+                 column_title  = "18S rRNA for Westside Park", 
+                 column_title_gp = gpar(fontface = "bold", fontsize = 14),
+                 #column_split = as.vector(as.vector(sample_tab_wp$Habitat)),
+                 #column_order = order(as.numeric(gsub("column", "", colnames(Z.Score.gen)))),
+                 border = TRUE,
+                 top_annotation = ha_wp_1,
+                 right_annotation = ha_right_gen_wp_1,
+                 row_title = "Genus",
+                 row_labels = row_labels_gen_wp_1,
+                 row_title_gp = gpar(fontsize = 10, fontface = "bold"),
+                 row_names_gp = gpar(fontsize = 6),
+                 column_names_gp = gpar(fontsize = 6),
+                 #row_order = order(row_labels_gen),
+                 rect_gp = gpar(col = "white", lwd = 1),
+                 show_column_names = FALSE,
+                 show_heatmap_legend = TRUE)
+
+hm_wp
+
+
+
+
+
+
+
+
+
+# Raw Sediment
+# Make new phyloseq to edit without messing up the original
+phylo_raw_aldex_wp <- WP_phylo_18s_raw
+
+# Use tax_fix to shift taxonomic names of higher ranks to lower ranks filled with NAs
+# Agglomerate taxa at genus level
+phylo_raw_aldex_wp <- tax_fix(phylo_raw_aldex_wp, unknowns = c("Unassigned", "uncultured", "Unkown", "uncultured eukaryote", 
+                                                               "Unknown Family", "uncultured organism"))
+
+phylo_raw_genus_wp <- tax_glom(phylo_raw_aldex_wp, taxrank = "V22")
+
+d1 <- psmelt(phylo_raw_genus_wp)
+
+# Run ALEDx2
+aldex2_raw_gen_wp <- ALDEx2::aldex(data.frame(phyloseq::otu_table(phylo_raw_genus_wp)),
+                                   phyloseq::sample_data(phylo_raw_genus_wp)$Habitat,
+                                   mc.samples=128, test="kw", effect=TRUE,include.sample.summary=FALSE, denom="all", verbose=FALSE)
+# Create data frame and format
+gen_otu_table_raw_wp <- data.frame(phyloseq::otu_table(phylo_raw_genus_wp))
+gen_otu_table_raw_wp <- rownames_to_column(gen_otu_table_raw_wp, var = "OTU")
+
+write.csv(aldex2_raw_gen_wp, "18s/Tables:Results/Aldex2 Genus/wp_aldex2_gen_raw.csv")
+
+# Import results CSV and format
+aldex2_raw_result_wp <- read.csv("18s/Tables:Results/Aldex2 Genus/wp_aldex2_gen_raw.csv")
+colnames(aldex2_raw_result_wp) <- c("OTU", "kw.ep", "kw.eBH", "glm.ep", "glm.eBH")
+
+# Create data frame for taxonomy 
+aldex_taxa_info_wp_raw <- data.frame(tax_table(phylo_raw_genus_wp))
+aldex_taxa_info_wp_raw <- aldex_taxa_info_wp_raw %>%
+  rownames_to_column(var = "OTU")
+
+sample_tab_wp_raw <- data.frame(sample_data(phylo_raw_genus_wp))
+
+# Export CSV 
+write.csv(aldex_taxa_info_wp, "18s/Tables:Results/Aldex2 Genus/wp_taxa_info_raw.csv")
+
+# Import edited CSV
+aldex_taxa_info_wp <- read.csv("18s/Tables:Results/Aldex2 Genus/wp_taxa_info_raw.csv")
+
+
+# Filter aldex2 results by sig kw.ep and join the taxanomic information
+sig_aldex2_raw_result_wp <- aldex2_raw_result_wp %>%
+  filter(kw.ep < 0.05) %>%
+  arrange(kw.ep, kw.eBH) %>%
+  dplyr::select(OTU, kw.ep, kw.eBH)
+sig_aldex2_raw_result_wp <- left_join(sig_aldex2_raw_result_wp, aldex_taxa_info_wp_raw)
+write.csv(sig_aldex2_raw_result_wp, "18s/Tables:Results/Aldex2 Genus/wp_sig_aldex2_gen_result_raw.csv")
+
+# Made changes to taxonomy names if needed 
+sig_aldex2_raw_result_wp <- read.csv("18s/Tables:Results/Aldex2 Genus/wp_sig_aldex2_gen_result_raw.csv")
+
+# Create clr objects by using OTU ids, original otu table, and all significant OTUs
+sig_aldex2_raw_result_count_wp <- left_join(sig_aldex2_raw_result_wp, gen_otu_table_raw_wp)
+sig_aldex2_raw_result_count_wp <- sig_aldex2_raw_result_count_wp[, -1]
+write.csv(sig_aldex2_raw_result_count_wp, "18s/Tables:Results/Aldex2 Genus/wp_sig_aldex2_gen_result_count_raw.csv")
+
+# Dropped taxonomic rank and formatted columns 
+clr_raw_wp <- sig_aldex2_raw_result_count_wp[, -(2:26)] 
+rownames(clr_raw_wp) <- clr_raw_wp$OTU
+clr_raw_wp <- clr_raw_wp[, -1]
+
+# Adjusting zeros on the matrix and applying log transformation
+shsk_raw_czm_wp <- cmultRepl(t(clr_raw_wp),  label=0, method="CZM")
+shsk_raw_czm_tv_wp <- t(apply(shsk_raw_czm_wp, 1, function(x){log(x) - mean(log(x))}))
+shsk_raw_czm_wp <- (apply(clr_raw_wp, 1, function(x){log(x+1) - mean(log(x+1))}))
+
+
+# Define palette color
+col_matrix <- colorRampPalette(brewer.pal(10, "BrBG"))(256)
+
+
+# Combine the heatmap and the annotation
+Z.Score.raw_wp <- scale(t(shsk_raw_czm_wp))
+
+# Define colors for each level of qualitative variables, i.e. locations and habitats
+# Create the heatmap annotation
+ha_wp_2 = HeatmapAnnotation(
+  Habitat = as.vector(sample_tab_wp_raw$Habitat),
+  col = list(
+    Habitat = c("Bare Sediment" = "saddlebrown", "Sea Grass" = "#00A572")),
+  annotation_legend_param = list(
+    Habitat = list(
+      title = "Habitat",
+      at = c("Bare Sediment", "Sea Grass"),
+      labels = c ("BS", "SG")
+    )
+  ))
+
+
+# Organize total abundance and taxa name
+# Taxa name
+Z.Score.raw_name_wp <- as.data.frame(Z.Score.raw_wp)
+str(Z.Score.raw_name_wp)
+Z.Score.raw_name_wp <- rownames_to_column(Z.Score.raw_name_wp, var = "OTU")
+Z.Score.raw_name_wp <- left_join(Z.Score.raw_name_wp, aldex_taxa_info_wp_raw)
+head(Z.Score.raw_name_wp)
+#Z.Score.gen_name <- Z.Score.gen_name[, -(84:90)] ###
+
+# Taxa abundance 
+gen_raw_otu_table_total_wp <- as.data.frame(gen_otu_table_raw_wp)
+gen_raw_otu_table_total_wp$Total <- rowSums(gen_otu_table_raw_wp[, -1])
+head(gen_raw_otu_table_total_wp)
+gen_raw_otu_table_total_wp <- gen_raw_otu_table_total_wp[, -(2:36)] ###
+
+Z.Score.raw_count_total_wp <- left_join(Z.Score.raw_name_wp, gen_raw_otu_table_total_wp)
+head(Z.Score.raw_count_total_wp)
+
+# Defining color scheme for row annotations
+abundance_col_fun = colorRamp2(c(0, 5000, 10000, 20000),
+                               c("#c7eae5",
+                                 "#80cdc1",
+                                 "#35978f",
+                                 "#01665e"))
+
+ha_right_gen_wp_2 = rowAnnotation(
+  Abundance = Z.Score.raw_count_total_wp$Total, border = FALSE, col = list(Abundance = abundance_col_fun))
+row_labels_gen_wp_2 = Z.Score.raw_count_total_wp$V22
+
+
+# Plot heatmap at the Genus level
+hm_wp_raw <- Heatmap(Z.Score.raw_wp, name = "Z-score, CLR", col = col_matrix,
+                     column_title  = "18S rRNA Raw Sediment for Westside Park", 
+                     column_title_gp = gpar(fontface = "bold", fontsize = 14),
+                     column_split = as.vector(as.vector(sample_tab_wp_raw$Habitat)),
+                     #column_order = order(as.numeric(gsub("column", "", colnames(Z.Score.gen)))),
+                     border = TRUE,
+                     top_annotation = ha_wp_2,
+                     right_annotation = ha_right_gen_wp_2,
+                     row_title = "Genus",
+                     row_labels = row_labels_gen_wp_2,
+                     row_title_gp = gpar(fontsize = 10, fontface = "bold"),
+                     row_names_gp = gpar(fontsize = 6),
+                     column_names_gp = gpar(fontsize = 6),
+                     #row_order = order(row_labels_gen),
+                     rect_gp = gpar(col = "white", lwd = 1),
+                     show_column_names = FALSE,
+                     show_heatmap_legend = TRUE)
+
+hm_wp_raw
+
+
+
+
+
+
+
+
+
+# Ludox
+# Make new phyloseq to edit without messing up the original
+phylo_ludox_aldex_wp <- WP_phylo_18s_ludox
+
+# Use tax_fix to shift taxonomic names of higher ranks to lower ranks filled with NAs
+# Agglomerate taxa at genus level
+phylo_ludox_aldex_wp <- tax_fix(phylo_ludox_aldex_wp, unknowns = c("Unassigned", "uncultured", "Unkown", "uncultured eukaryote", 
+                                                                   "Unknown Family", "uncultured organism"))
+
+phylo_ludox_genus_wp <- tax_glom(phylo_ludox_aldex_wp, taxrank = "V22")
+
+d1 <- psmelt(phylo_ludox_genus_wp)
+
+# Run ALEDx2
+aldex2_ludox_gen_wp <- ALDEx2::aldex(data.frame(phyloseq::otu_table(phylo_ludox_genus_wp)),
+                                     phyloseq::sample_data(phylo_ludox_genus_wp)$Habitat,
+                                     mc.samples=128, test="kw", effect=TRUE,include.sample.summary=FALSE, denom="all", verbose=FALSE)
+# Create data frame and format
+gen_otu_table_ludox_wp <- data.frame(phyloseq::otu_table(phylo_ludox_genus_wp))
+gen_otu_table_ludox_wp <- rownames_to_column(gen_otu_table_ludox_wp, var = "OTU")
+
+write.csv(aldex2_ludox_gen_wp, "18s/Tables:Results/Aldex2 Genus/wp_aldex2_gen_ludox.csv")
+
+# Import results CSV and format
+aldex2_ludox_result_wp <- read.csv("18s/Tables:Results/Aldex2 Genus/wp_aldex2_gen_ludox.csv")
+colnames(aldex2_ludox_result_wp) <- c("OTU", "kw.ep", "kw.eBH", "glm.ep", "glm.eBH")
+
+# Create data frame for taxonomy 
+aldex_taxa_info_wp_ludox <- data.frame(tax_table(phylo_ludox_genus_wp))
+aldex_taxa_info_wp_ludox <- aldex_taxa_info_wp_ludox %>%
+  rownames_to_column(var = "OTU")
+
+sample_tab_wp_ludox <- data.frame(sample_data(phylo_ludox_genus_wp))
+
+# Export CSV 
+write.csv(aldex_taxa_info_wp, "18s/Tables:Results/Aldex2 Genus/wp_taxa_info_ludox.csv")
+
+# Import edited CSV
+aldex_taxa_info_wp <- read.csv("18s/Tables:Results/Aldex2 Genus/wp_taxa_info_ludox.csv")
+
+
+# Filter aldex2 results by sig kw.ep and join the taxanomic information
+sig_aldex2_ludox_result_wp <- aldex2_ludox_result_wp %>%
+  filter(kw.ep < 0.05) %>%
+  arrange(kw.ep, kw.eBH) %>%
+  dplyr::select(OTU, kw.ep, kw.eBH)
+sig_aldex2_ludox_result_wp <- left_join(sig_aldex2_ludox_result_wp, aldex_taxa_info_wp_ludox)
+write.csv(sig_aldex2_ludox_result_wp, "18s/Tables:Results/Aldex2 Genus/wp_sig_aldex2_gen_result_ludox.csv")
+
+# Made changes to taxonomy names if needed 
+sig_aldex2_ludox_result_wp <- read.csv("18s/Tables:Results/Aldex2 Genus/wp_sig_aldex2_gen_result_ludox.csv")
+
+# Create clr objects by using OTU ids, original otu table, and all significant OTUs
+sig_aldex2_ludox_result_count_wp <- left_join(sig_aldex2_ludox_result_wp, gen_otu_table_ludox_wp)
+sig_aldex2_ludox_result_count_wp <- sig_aldex2_ludox_result_count_wp[, -1]
+write.csv(sig_aldex2_ludox_result_count_wp, "18s/Tables:Results/Aldex2 Genus/wp_sig_aldex2_gen_result_count_ludox.csv")
+
+# Dropped taxonomic rank and formatted columns 
+clr_ludox_wp <- sig_aldex2_ludox_result_count_wp[, -(2:26)] 
+rownames(clr_ludox_wp) <- clr_ludox_wp$OTU
+clr_ludox_wp <- clr_ludox_wp[, -1]
+
+# Adjusting zeros on the matrix and applying log transformation
+shsk_ludox_czm_wp <- cmultRepl(t(clr_ludox_wp),  label=0, method="CZM")
+shsk_ludox_czm_tv_wp <- t(apply(shsk_ludox_czm_wp, 1, function(x){log(x) - mean(log(x))}))
+shsk_ludox_czm_wp <- (apply(clr_ludox_wp, 1, function(x){log(x+1) - mean(log(x+1))}))
+
+
+# Define palette color
+col_matrix <- colorRampPalette(brewer.pal(10, "BrBG"))(256)
+
+
+# Combine the heatmap and the annotation
+Z.Score.ludox_wp <- scale(t(shsk_ludox_czm_wp))
+
+# Define colors for each level of qualitative variables, i.e. locations and habitats
+# Create the heatmap annotation
+ha_wp_3 = HeatmapAnnotation(
+  Habitat = as.vector(sample_tab_wp_ludox$Habitat),
+  col = list(
+    Habitat = c("Bare Sediment" = "saddlebrown", "Sea Grass" = "#00A572")),
+  annotation_legend_param = list(
+    Habitat = list(
+      title = "Habitat",
+      at = c("Bare Sediment", "Sea Grass"),
+      labels = c ("BS", "SG")
+    )
+  ))
+
+
+# Organize total abundance and taxa name
+# Taxa name
+Z.Score.ludox_name_wp <- as.data.frame(Z.Score.ludox_wp)
+str(Z.Score.ludox_name_wp)
+Z.Score.ludox_name_wp <- rownames_to_column(Z.Score.ludox_name_wp, var = "OTU")
+Z.Score.ludox_name_wp <- left_join(Z.Score.ludox_name_wp, aldex_taxa_info_wp_ludox)
+head(Z.Score.ludox_name_wp)
+#Z.Score.gen_name <- Z.Score.gen_name[, -(84:90)] ###
+
+# Taxa abundance 
+gen_ludox_otu_table_total_wp <- as.data.frame(gen_otu_table_ludox_wp)
+gen_ludox_otu_table_total_wp$Total <- rowSums(gen_otu_table_ludox_wp[, -1])
+head(gen_ludox_otu_table_total_wp)
+gen_ludox_otu_table_total_wp <- gen_ludox_otu_table_total_wp[, -(2:37)] ###
+
+Z.Score.ludox_count_total_wp <- left_join(Z.Score.ludox_name_wp, gen_ludox_otu_table_total_wp)
+head(Z.Score.ludox_count_total_wp)
+
+# Defining color scheme for row annotations
+abundance_col_fun = colorRamp2(c(0, 5000, 10000, 20000),
+                               c("#c7eae5",
+                                 "#80cdc1",
+                                 "#35978f",
+                                 "#01665e"))
+
+ha_right_gen_wp_3 = rowAnnotation(
+  Abundance = Z.Score.ludox_count_total_wp$Total, border = FALSE, col = list(Abundance = abundance_col_fun))
+row_labels_gen_wp_3 = Z.Score.ludox_count_total_wp$V22
+
+
+# Plot heatmap at the Genus level
+hm_wp_ludox <- Heatmap(Z.Score.ludox_wp, name = "Z-score, CLR", col = col_matrix,
+                       column_title  = "18S rRNA Ludox for Westside Park", 
+                       column_title_gp = gpar(fontface = "bold", fontsize = 14),
+                       column_split = as.vector(as.vector(sample_tab_wp_ludox$Habitat)),
+                       #column_order = order(as.numeric(gsub("column", "", colnames(Z.Score.gen)))),
+                       border = TRUE,
+                       top_annotation = ha_wp_3,
+                       right_annotation = ha_right_gen_wp_3,
+                       row_title = "Genus",
+                       row_labels = row_labels_gen_wp_3,
+                       row_title_gp = gpar(fontsize = 10, fontface = "bold"),
+                       row_names_gp = gpar(fontsize = 6),
+                       column_names_gp = gpar(fontsize = 6),
+                       #row_order = order(row_labels_gen),
+                       rect_gp = gpar(col = "white", lwd = 1),
+                       show_column_names = FALSE,
+                       show_heatmap_legend = TRUE)
+
+hm_wp_ludox
+
+
+
+
+
+
+
+
+
+
+# Nematodes
+# Make new phyloseq to edit without messing up the original
+phylo_nemaotde_aldex_wp <- WP_phylo_18s_nematode
+
+# Use tax_fix to shift taxonomic names of higher ranks to lower ranks filled with NAs
+# Agglomerate taxa at genus level
+phylo_nemaotde_aldex_wp <- tax_fix(phylo_nemaotde_aldex_wp, unknowns = c("Unassigned", "uncultured", "Unkown", "uncultured eukaryote", 
+                                                                         "Unknown Family", "uncultured organism"))
+
+phylo_nemaotde_genus_wp <- tax_glom(phylo_nemaotde_aldex_wp, taxrank = "V22")
+
+d1 <- psmelt(phylo_nemaotde_genus_wp)
+
+# Run ALEDx2
+aldex2_nemaotde_gen_wp <- ALDEx2::aldex(data.frame(phyloseq::otu_table(phylo_nemaotde_genus_wp)),
+                                        phyloseq::sample_data(phylo_nemaotde_genus_wp)$Habitat,
+                                        mc.samples=128, test="kw", effect=TRUE,include.sample.summary=FALSE, denom="all", verbose=FALSE)
+# Create data frame and format
+gen_otu_table_nemaotde_wp <- data.frame(phyloseq::otu_table(phylo_nemaotde_genus_wp))
+gen_otu_table_nemaotde_wp <- rownames_to_column(gen_otu_table_nemaotde_wp, var = "OTU")
+
+write.csv(aldex2_nemaotde_gen_wp, "18s/Tables:Results/Aldex2 Genus/wp_aldex2_gen_nemaotde.csv")
+
+# Import results CSV and format
+aldex2_nemaotde_result_wp <- read.csv("18s/Tables:Results/Aldex2 Genus/wp_aldex2_gen_nemaotde.csv")
+colnames(aldex2_nemaotde_result_wp) <- c("OTU", "kw.ep", "kw.eBH", "glm.ep", "glm.eBH")
+
+# Create data frame for taxonomy 
+aldex_taxa_info_wp_nemaotde <- data.frame(tax_table(phylo_nemaotde_genus_wp))
+aldex_taxa_info_wp_nemaotde <- aldex_taxa_info_wp_nemaotde %>%
+  rownames_to_column(var = "OTU")
+
+sample_tab_wp_nemaotde <- data.frame(sample_data(phylo_nemaotde_genus_wp))
+
+# Export CSV 
+write.csv(aldex_taxa_info_wp, "18s/Tables:Results/Aldex2 Genus/wp_taxa_info_nemaotde.csv")
+
+# Import edited CSV
+aldex_taxa_info_wp <- read.csv("18s/Tables:Results/Aldex2 Genus/wp_taxa_info_nemaotde.csv")
+
+
+# Filter aldex2 results by sig kw.ep and join the taxanomic information
+sig_aldex2_nemaotde_result_wp <- aldex2_nemaotde_result_wp %>%
+  filter(kw.ep < 0.05) %>%
+  arrange(kw.ep, kw.eBH) %>%
+  dplyr::select(OTU, kw.ep, kw.eBH)
+sig_aldex2_nemaotde_result_wp <- left_join(sig_aldex2_nemaotde_result_wp, aldex_taxa_info_wp_nemaotde)
+write.csv(sig_aldex2_nemaotde_result_wp, "18s/Tables:Results/Aldex2 Genus/wp_sig_aldex2_gen_result_nemaotde.csv")
+
+# Made changes to taxonomy names if needed 
+sig_aldex2_nemaotde_result_wp <- read.csv("18s/Tables:Results/Aldex2 Genus/wp_sig_aldex2_gen_result_nemaotde.csv")
+
+# Create clr objects by using OTU ids, original otu table, and all significant OTUs
+sig_aldex2_nemaotde_result_count_wp <- left_join(sig_aldex2_nemaotde_result_wp, gen_otu_table_nemaotde_wp)
+sig_aldex2_nemaotde_result_count_wp <- sig_aldex2_nemaotde_result_count_wp[, -1]
+write.csv(sig_aldex2_nemaotde_result_count_wp, "18s/Tables:Results/Aldex2 Genus/wp_sig_aldex2_gen_result_count_nemaotde.csv")
+
+# Dropped taxonomic rank and formatted columns 
+clr_nemaotde_wp <- sig_aldex2_nemaotde_result_count_wp[, -(2:26)] 
+rownames(clr_nemaotde_wp) <- clr_nemaotde_wp$OTU
+clr_nemaotde_wp <- clr_nemaotde_wp[, -1]
+
+# Adjusting zeros on the matrix and applying log transformation
+shsk_nemaotde_czm_wp <- cmultRepl(t(clr_nemaotde_wp),  label=0, method="CZM")
+shsk_nemaotde_czm_tv_wp <- t(apply(shsk_nemaotde_czm_wp, 1, function(x){log(x) - mean(log(x))}))
+shsk_nemaotde_czm_wp <- (apply(clr_nemaotde_wp, 1, function(x){log(x+1) - mean(log(x+1))}))
+
+
+# Define palette color
+col_matrix <- colorRampPalette(brewer.pal(10, "BrBG"))(256)
+
+
+# Combine the heatmap and the annotation
+Z.Score.nemaotde_wp <- scale(t(shsk_nemaotde_czm_wp))
+
+# Define colors for each level of qualitative variables, i.e. locations and habitats
+# Create the heatmap annotation
+ha_wp_4 = HeatmapAnnotation(
+  Habitat = as.vector(sample_tab_wp_nemaotde$Habitat),
+  col = list(
+    Habitat = c("Bare Sediment" = "saddlebrown", "Sea Grass" = "#00A572")),
+  annotation_legend_param = list(
+    Habitat = list(
+      title = "Habitat",
+      at = c("Bare Sediment", "Sea Grass"),
+      labels = c ("BS", "SG")
+    )
+  ))
+
+
+# Organize total abundance and taxa name
+# Taxa name
+Z.Score.nemaotde_name_wp <- as.data.frame(Z.Score.nemaotde_wp)
+str(Z.Score.nemaotde_name_wp)
+Z.Score.nemaotde_name_wp <- rownames_to_column(Z.Score.nemaotde_name_wp, var = "OTU")
+Z.Score.nemaotde_name_wp <- left_join(Z.Score.nemaotde_name_wp, aldex_taxa_info_wp_nemaotde)
+head(Z.Score.nemaotde_name_wp)
+#Z.Score.gen_name <- Z.Score.gen_name[, -(84:90)] ###
+
+# Taxa abundance 
+gen_nemaotde_otu_table_total_wp <- as.data.frame(gen_otu_table_nemaotde_wp)
+gen_nemaotde_otu_table_total_wp$Total <- rowSums(gen_otu_table_nemaotde_wp[, -1])
+head(gen_nemaotde_otu_table_total_wp)
+gen_nemaotde_otu_table_total_wp <- gen_nemaotde_otu_table_total_wp[, -(2:37)] ###
+
+Z.Score.nemaotde_count_total_wp <- left_join(Z.Score.nemaotde_name_wp, gen_nemaotde_otu_table_total_wp)
+head(Z.Score.nemaotde_count_total_wp)
+
+# Defining color scheme for row annotations
+abundance_col_fun = colorRamp2(c(0, 5000, 10000, 20000),
+                               c("#c7eae5",
+                                 "#80cdc1",
+                                 "#35978f",
+                                 "#01665e"))
+
+ha_right_gen_wp_4 = rowAnnotation(
+  Abundance = Z.Score.nemaotde_count_total_wp$Total, border = FALSE, col = list(Abundance = abundance_col_fun))
+row_labels_gen_wp_4 = Z.Score.nemaotde_count_total_wp$V22
+
+
+# Plot heatmap at the Genus level
+hm_wp_nemaotde <- Heatmap(Z.Score.nemaotde_wp, name = "Z-score, CLR", col = col_matrix,
+                          column_title  = "Nematodes Only From Westside Park", 
+                          column_title_gp = gpar(fontface = "bold", fontsize = 14),
+                          #column_split = as.vector(as.vector(sample_tab_wp_nemaotde$Habitat)),
+                          #column_order = order(as.numeric(gsub("column", "", colnames(Z.Score.gen)))),
+                          border = TRUE,
+                          top_annotation = ha_wp_4,
+                          right_annotation = ha_right_gen_wp_4,
+                          row_title = "Genus",
+                          row_labels = row_labels_gen_wp_4,
+                          row_title_gp = gpar(fontsize = 10, fontface = "bold"),
+                          row_names_gp = gpar(fontsize = 6),
+                          column_names_gp = gpar(fontsize = 6),
+                          #row_order = order(row_labels_gen),
+                          rect_gp = gpar(col = "white", lwd = 1),
+                          show_column_names = FALSE,
+                          show_heatmap_legend = TRUE)
+
+hm_wp_nemaotde
+
+
+
+
+
+##################### Aldex2 Mason's Marina Comparison ################################
+# All Samples
+# Make new phyloseq to edit without messing up the original
+phylo_18s_aldex_mm <- MM_phylo_18s
+
+# Use tax_fix to shift taxonomic names of higher ranks to lower ranks filled with NAs
+# Agglomerate taxa at genus level
+phylo_18s_aldex_mm <- tax_fix(phylo_18s_aldex_mm, unknowns = c("Unassigned", "uncultured", "Unkown", "uncultured eukaryote", 
+                                                               "Unknown Family", "uncultured organism"))
+
+phylo_18s_genus_mm <- tax_glom(phylo_18s_aldex_mm, taxrank = "V22")
+
+d1 <- psmelt(phylo_18s_genus_mm)
+
+# Run ALEDx2
+aldex2_18s_gen_mm <- ALDEx2::aldex(data.frame(phyloseq::otu_table(phylo_18s_genus_mm)),
+                                   phyloseq::sample_data(phylo_18s_genus_mm)$Habitat,
+                                   mc.samples=128, test="kw", effect=TRUE,include.sample.summary=FALSE, denom="all", verbose=FALSE)
+# Create data frame and format
+gen_otu_table_18s_mm <- data.frame(phyloseq::otu_table(phylo_18s_genus_mm))
+gen_otu_table_18s_mm <- rownames_to_column(gen_otu_table_18s_mm, var = "OTU")
+
+write.csv(aldex2_18s_gen_mm, "18s/Tables:Results/Aldex2 Genus/mm_aldex2_gen.csv")
+
+# Import results CSV and format
+aldex2_18s_result_mm <- read.csv("18s/Tables:Results/Aldex2 Genus/mm_aldex2_gen.csv")
+colnames(aldex2_18s_result_mm) <- c("OTU", "kw.ep", "kw.eBH", "glm.ep", "glm.eBH")
+
+# Create data frame for taxonomy 
+aldex_taxa_info_mm <- data.frame(tax_table(phylo_18s_genus_mm))
+aldex_taxa_info_mm <- aldex_taxa_info_mm %>%
+  rownames_to_column(var = "OTU")
+
+sample_tab_mm <- data.frame(sample_data(phylo_18s_genus_mm))
+
+# Export CSV 
+write.csv(aldex_taxa_info_mm, "18s/Tables:Results/Aldex2 Genus/mm_taxa_info.csv")
+
+# Import edited CSV
+aldex_taxa_info_mm <- read.csv("18s/Tables:Results/Aldex2 Genus/mm_taxa_info.csv")
+
+
+# Filter aldex2 results by sig kw.ep and join the taxanomic information
+sig_aldex2_18s_result_mm <- aldex2_18s_result_mm %>%
+  filter(kw.ep < 0.05) %>%
+  arrange(kw.ep, kw.eBH) %>%
+  dplyr::select(OTU, kw.ep, kw.eBH)
+sig_aldex2_18s_result_mm <- left_join(sig_aldex2_18s_result_mm, aldex_taxa_info_mm)
+write.csv(sig_aldex2_18s_result_mm, "18s/Tables:Results/Aldex2 Genus/mm_sig_aldex2_gen_result.csv")
+
+# Made changes to taxonomy names if needed 
+sig_aldex2_18s_result_mm <- read.csv("18s/Tables:Results/Aldex2 Genus/mm_sig_aldex2_gen_result.csv")
+
+# Create clr objects by using OTU ids, original otu table, and all significant OTUs
+sig_aldex2_18s_result_count_mm <- left_join(sig_aldex2_18s_result_mm, gen_otu_table_18s_mm)
+sig_aldex2_18s_result_count_mm <- sig_aldex2_18s_result_count_mm[, -1]
+write.csv(sig_aldex2_18s_result_count_mm, "18s/Tables:Results/Aldex2 Genus/mm_sig_aldex2_gen_result_count.csv")
+
+# Dropped taxonomic rank and formatted columns 
+clr_18s_mm <- sig_aldex2_18s_result_count_mm[, -(2:27)] 
+rownames(clr_18s_mm) <- clr_18s_mm$OTU
+clr_18s_mm <- clr_18s_mm[, -1]
+
+# Adjusting zeros on the matrix and applying log transformation
+shsk_18s_czm_mm <- cmultRepl(t(clr_18s_mm),  label=0, method="CZM")
+shsk_18s_czm_tv_mm <- t(apply(shsk_18s_czm_mm, 1, function(x){log(x) - mean(log(x))}))
+shsk_18s_czm_mm <- (apply(clr_18s_mm, 1, function(x){log(x+1) - mean(log(x+1))}))
+
+
+# Define palette color
+col_matrix <- colorRampPalette(brewer.pal(10, "BrBG"))(256)
+
+
+# Combine the heatmap and the annotation
+Z.Score.18s_mm <- scale(t(shsk_18s_czm_mm))
+
+# Define colors for each level of qualitative variables, i.e. locations and habitats
+# Create the heatmap annotation
+ha_mm_1 = HeatmapAnnotation(
+  Habitat = as.vector(sample_tab_mm$Habitat),
+  col = list(
+    Habitat = c("Bare Sediment" = "saddlebrown", "Sea Grass" = "#00A572")),
+  annotation_legend_param = list(
+    Habitat = list(
+      title = "Habitat",
+      at = c("Bare Sediment", "Sea Grass"),
+      labels = c ("BS", "SG")
+    )
+  ))
+
+
+# Organize total abundance and taxa name
+# Taxa name
+Z.Score.18s_name_mm <- as.data.frame(Z.Score.18s_mm)
+str(Z.Score.18s_name_mm)
+Z.Score.18s_name_mm <- rownames_to_column(Z.Score.18s_name_mm, var = "OTU")
+Z.Score.18s_name_mm <- left_join(Z.Score.18s_name_mm, aldex_taxa_info_mm)
+head(Z.Score.18s_name_mm)
+#Z.Score.gen_name <- Z.Score.gen_name[, -(84:90)] ###
+
+# Taxa abundance 
+gen_18s_otu_table_total_mm <- as.data.frame(gen_otu_table_18s_mm)
+gen_18s_otu_table_total_mm$Total <- rowSums(gen_otu_table_18s_mm[, -1])
+head(gen_18s_otu_table_total_mm)
+gen_18s_otu_table_total_mm <- gen_18s_otu_table_total_mm[, -(2:49)] ###
+
+Z.Score.18s_count_total_mm <- left_join(Z.Score.18s_name_mm, gen_18s_otu_table_total_mm)
+head(Z.Score.18s_count_total_mm)
+
+# Defining color scheme for row annotations
+abundance_col_fun = colorRamp2(c(0, 5000, 10000, 20000),
+                               c("#c7eae5",
+                                 "#80cdc1",
+                                 "#35978f",
+                                 "#01665e"))
+
+ha_right_gen_mm_1 = rowAnnotation(
+  Abundance = Z.Score.18s_count_total_mm$Total, border = FALSE, col = list(Abundance = abundance_col_fun))
+row_labels_gen_mm_1 = Z.Score.18s_count_total_mm$V22
+
+
+# Plot heatmap at the Genus level
+hm_mm <- Heatmap(Z.Score.18s_mm, name = "Z-score, CLR", col = col_matrix,
+                 column_title  = "18S rRNA for Mason's Marina", 
+                 column_title_gp = gpar(fontface = "bold", fontsize = 14),
+                 column_split = as.vector(as.vector(sample_tab_mm$Habitat)),
+                 #column_order = order(as.numeric(gsub("column", "", colnames(Z.Score.gen)))),
+                 border = TRUE,
+                 top_annotation = ha_mm_1,
+                 right_annotation = ha_right_gen_mm_1,
+                 row_title = "Genus",
+                 row_labels = row_labels_gen_mm_1,
+                 row_title_gp = gpar(fontsize = 10, fontface = "bold"),
+                 row_names_gp = gpar(fontsize = 6),
+                 column_names_gp = gpar(fontsize = 6),
+                 #row_order = order(row_labels_gen),
+                 rect_gp = gpar(col = "white", lwd = 1),
+                 show_column_names = FALSE,
+                 show_heatmap_legend = TRUE)
+
+hm_mm
+
+
+
+
+
+
+
+
+
+# Raw Sediment
+# Make new phyloseq to edit without messing up the original
+phylo_raw_aldex_mm <- MM_phylo_18s_raw
+
+# Use tax_fix to shift taxonomic names of higher ranks to lower ranks filled with NAs
+# Agglomerate taxa at genus level
+phylo_raw_aldex_mm <- tax_fix(phylo_raw_aldex_mm, unknowns = c("Unassigned", "uncultured", "Unkown", "uncultured eukaryote", 
+                                                               "Unknown Family", "uncultured organism"))
+
+phylo_raw_genus_mm <- tax_glom(phylo_raw_aldex_mm, taxrank = "V22")
+
+d1 <- psmelt(phylo_raw_genus_mm)
+
+# Run ALEDx2
+aldex2_raw_gen_mm <- ALDEx2::aldex(data.frame(phyloseq::otu_table(phylo_raw_genus_mm)),
+                                   phyloseq::sample_data(phylo_raw_genus_mm)$Habitat,
+                                   mc.samples=128, test="kw", effect=TRUE,include.sample.summary=FALSE, denom="all", verbose=FALSE)
+# Create data frame and format
+gen_otu_table_raw_mm <- data.frame(phyloseq::otu_table(phylo_raw_genus_mm))
+gen_otu_table_raw_mm <- rownames_to_column(gen_otu_table_raw_mm, var = "OTU")
+
+write.csv(aldex2_raw_gen_mm, "18s/Tables:Results/Aldex2 Genus/mm_aldex2_gen_raw.csv")
+
+# Import results CSV and format
+aldex2_raw_result_mm <- read.csv("18s/Tables:Results/Aldex2 Genus/mm_aldex2_gen_raw.csv")
+colnames(aldex2_raw_result_mm) <- c("OTU", "kw.ep", "kw.eBH", "glm.ep", "glm.eBH")
+
+# Create data frame for taxonomy 
+aldex_taxa_info_mm_raw <- data.frame(tax_table(phylo_raw_genus_mm))
+aldex_taxa_info_mm_raw <- aldex_taxa_info_mm_raw %>%
+  rownames_to_column(var = "OTU")
+
+sample_tab_mm_raw <- data.frame(sample_data(phylo_raw_genus_mm))
+
+# Export CSV 
+write.csv(aldex_taxa_info_mm, "18s/Tables:Results/Aldex2 Genus/mm_taxa_info_raw.csv")
+
+# Import edited CSV
+aldex_taxa_info_mm <- read.csv("18s/Tables:Results/Aldex2 Genus/mm_taxa_info_raw.csv")
+
+
+# Filter aldex2 results by sig kw.ep and join the taxanomic information
+sig_aldex2_raw_result_mm <- aldex2_raw_result_mm %>%
+  filter(kw.ep < 0.05) %>%
+  arrange(kw.ep, kw.eBH) %>%
+  dplyr::select(OTU, kw.ep, kw.eBH)
+sig_aldex2_raw_result_mm <- left_join(sig_aldex2_raw_result_mm, aldex_taxa_info_mm_raw)
+write.csv(sig_aldex2_raw_result_mm, "18s/Tables:Results/Aldex2 Genus/mm_sig_aldex2_gen_result_raw.csv")
+
+# Made changes to taxonomy names if needed 
+sig_aldex2_raw_result_mm <- read.csv("18s/Tables:Results/Aldex2 Genus/mm_sig_aldex2_gen_result_raw.csv")
+
+# Create clr objects by using OTU ids, original otu table, and all significant OTUs
+sig_aldex2_raw_result_count_mm <- left_join(sig_aldex2_raw_result_mm, gen_otu_table_raw_mm)
+sig_aldex2_raw_result_count_mm <- sig_aldex2_raw_result_count_mm[, -1]
+write.csv(sig_aldex2_raw_result_count_mm, "18s/Tables:Results/Aldex2 Genus/mm_sig_aldex2_gen_result_count_raw.csv")
+
+# Dropped taxonomic rank and formatted columns 
+clr_raw_mm <- sig_aldex2_raw_result_count_mm[, -(2:26)] 
+rownames(clr_raw_mm) <- clr_raw_mm$OTU
+clr_raw_mm <- clr_raw_mm[, -1]
+
+# Adjusting zeros on the matrix and applying log transformation
+shsk_raw_czm_mm <- cmultRepl(t(clr_raw_mm),  label=0, method="CZM")
+shsk_raw_czm_tv_mm <- t(apply(shsk_raw_czm_mm, 1, function(x){log(x) - mean(log(x))}))
+shsk_raw_czm_mm <- (apply(clr_raw_mm, 1, function(x){log(x+1) - mean(log(x+1))}))
+
+
+# Define palette color
+col_matrix <- colorRampPalette(brewer.pal(10, "BrBG"))(256)
+
+
+# Combine the heatmap and the annotation
+Z.Score.raw_mm <- scale(t(shsk_raw_czm_mm))
+
+# Define colors for each level of qualitative variables, i.e. locations and habitats
+# Create the heatmap annotation
+ha_mm_2 = HeatmapAnnotation(
+  Habitat = as.vector(sample_tab_mm_raw$Habitat),
+  col = list(
+    Habitat = c("Bare Sediment" = "saddlebrown", "Sea Grass" = "#00A572")),
+  annotation_legend_param = list(
+    Habitat = list(
+      title = "Habitat",
+      at = c("Bare Sediment", "Sea Grass"),
+      labels = c ("BS", "SG")
+    )
+  ))
+
+
+# Organize total abundance and taxa name
+# Taxa name
+Z.Score.raw_name_mm <- as.data.frame(Z.Score.raw_mm)
+str(Z.Score.raw_name_mm)
+Z.Score.raw_name_mm <- rownames_to_column(Z.Score.raw_name_mm, var = "OTU")
+Z.Score.raw_name_mm <- left_join(Z.Score.raw_name_mm, aldex_taxa_info_mm_raw)
+head(Z.Score.raw_name_mm)
+#Z.Score.gen_name <- Z.Score.gen_name[, -(84:90)] ###
+
+# Taxa abundance 
+gen_raw_otu_table_total_mm <- as.data.frame(gen_otu_table_raw_mm)
+gen_raw_otu_table_total_mm$Total <- rowSums(gen_otu_table_raw_mm[, -1])
+head(gen_raw_otu_table_total_mm)
+gen_raw_otu_table_total_mm <- gen_raw_otu_table_total_mm[, -(2:25)] ###
+
+Z.Score.raw_count_total_mm <- left_join(Z.Score.raw_name_mm, gen_raw_otu_table_total_mm)
+head(Z.Score.raw_count_total_mm)
+
+# Defining color scheme for row annotations
+abundance_col_fun = colorRamp2(c(0, 5000, 10000, 20000),
+                               c("#c7eae5",
+                                 "#80cdc1",
+                                 "#35978f",
+                                 "#01665e"))
+
+ha_right_gen_mm_2 = rowAnnotation(
+  Abundance = Z.Score.raw_count_total_mm$Total, border = FALSE, col = list(Abundance = abundance_col_fun))
+row_labels_gen_mm_2 = Z.Score.raw_count_total_mm$V22
+
+
+# Plot heatmap at the Genus level
+hm_mm_raw <- Heatmap(Z.Score.raw_mm, name = "Z-score, CLR", col = col_matrix,
+                     column_title  = "18S rRNA Raw Sediment for Mason's Marina", 
+                     column_title_gp = gpar(fontface = "bold", fontsize = 14),
+                     column_split = as.vector(as.vector(sample_tab_mm_raw$Habitat)),
+                     #column_order = order(as.numeric(gsub("column", "", colnames(Z.Score.gen)))),
+                     border = TRUE,
+                     top_annotation = ha_mm_2,
+                     right_annotation = ha_right_gen_mm_2,
+                     row_title = "Genus",
+                     row_labels = row_labels_gen_mm_2,
+                     row_title_gp = gpar(fontsize = 10, fontface = "bold"),
+                     row_names_gp = gpar(fontsize = 6),
+                     column_names_gp = gpar(fontsize = 6),
+                     #row_order = order(row_labels_gen),
+                     rect_gp = gpar(col = "white", lwd = 1),
+                     show_column_names = FALSE,
+                     show_heatmap_legend = TRUE)
+
+hm_mm_raw
+
+
+
+
+
+
+
+
+
+# Ludox
+# Make new phyloseq to edit without messing up the original
+phylo_ludox_aldex_mm <- MM_phylo_18s_ludox
+
+# Use tax_fix to shift taxonomic names of higher ranks to lower ranks filled with NAs
+# Agglomerate taxa at genus level
+phylo_ludox_aldex_mm <- tax_fix(phylo_ludox_aldex_mm, unknowns = c("Unassigned", "uncultured", "Unkown", "uncultured eukaryote", 
+                                                                   "Unknown Family", "uncultured organism"))
+
+phylo_ludox_genus_mm <- tax_glom(phylo_ludox_aldex_mm, taxrank = "V22")
+
+d1 <- psmelt(phylo_ludox_genus_mm)
+
+# Run ALEDx2
+aldex2_ludox_gen_mm <- ALDEx2::aldex(data.frame(phyloseq::otu_table(phylo_ludox_genus_mm)),
+                                     phyloseq::sample_data(phylo_ludox_genus_mm)$Habitat,
+                                     mc.samples=128, test="kw", effect=TRUE,include.sample.summary=FALSE, denom="all", verbose=FALSE)
+# Create data frame and format
+gen_otu_table_ludox_mm <- data.frame(phyloseq::otu_table(phylo_ludox_genus_mm))
+gen_otu_table_ludox_mm <- rownames_to_column(gen_otu_table_ludox_mm, var = "OTU")
+
+write.csv(aldex2_ludox_gen_mm, "18s/Tables:Results/Aldex2 Genus/mm_aldex2_gen_ludox.csv")
+
+# Import results CSV and format
+aldex2_ludox_result_mm <- read.csv("18s/Tables:Results/Aldex2 Genus/mm_aldex2_gen_ludox.csv")
+colnames(aldex2_ludox_result_mm) <- c("OTU", "kw.ep", "kw.eBH", "glm.ep", "glm.eBH")
+
+# Create data frame for taxonomy 
+aldex_taxa_info_mm_ludox <- data.frame(tax_table(phylo_ludox_genus_mm))
+aldex_taxa_info_mm_ludox <- aldex_taxa_info_mm_ludox %>%
+  rownames_to_column(var = "OTU")
+
+sample_tab_mm_ludox <- data.frame(sample_data(phylo_ludox_genus_mm))
+
+# Export CSV 
+write.csv(aldex_taxa_info_mm, "18s/Tables:Results/Aldex2 Genus/mm_taxa_info_ludox.csv")
+
+# Import edited CSV
+aldex_taxa_info_mm <- read.csv("18s/Tables:Results/Aldex2 Genus/mm_taxa_info_ludox.csv")
+
+
+# Filter aldex2 results by sig kw.ep and join the taxanomic information
+sig_aldex2_ludox_result_mm <- aldex2_ludox_result_mm %>%
+  filter(kw.ep < 0.05) %>%
+  arrange(kw.ep, kw.eBH) %>%
+  dplyr::select(OTU, kw.ep, kw.eBH)
+sig_aldex2_ludox_result_mm <- left_join(sig_aldex2_ludox_result_mm, aldex_taxa_info_mm_ludox)
+write.csv(sig_aldex2_ludox_result_mm, "18s/Tables:Results/Aldex2 Genus/mm_sig_aldex2_gen_result_ludox.csv")
+
+# Made changes to taxonomy names if needed 
+sig_aldex2_ludox_result_mm <- read.csv("18s/Tables:Results/Aldex2 Genus/mm_sig_aldex2_gen_result_ludox.csv")
+
+# Create clr objects by using OTU ids, original otu table, and all significant OTUs
+sig_aldex2_ludox_result_count_mm <- left_join(sig_aldex2_ludox_result_mm, gen_otu_table_ludox_mm)
+sig_aldex2_ludox_result_count_mm <- sig_aldex2_ludox_result_count_mm[, -1]
+write.csv(sig_aldex2_ludox_result_count_mm, "18s/Tables:Results/Aldex2 Genus/mm_sig_aldex2_gen_result_count_ludox.csv")
+
+# Dropped taxonomic rank and formatted columns 
+clr_ludox_mm <- sig_aldex2_ludox_result_count_mm[, -(2:26)] 
+rownames(clr_ludox_mm) <- clr_ludox_mm$OTU
+clr_ludox_mm <- clr_ludox_mm[, -1]
+
+# Adjusting zeros on the matrix and applying log transformation
+shsk_ludox_czm_mm <- cmultRepl(t(clr_ludox_mm),  label=0, method="CZM")
+shsk_ludox_czm_tv_mm <- t(apply(shsk_ludox_czm_mm, 1, function(x){log(x) - mean(log(x))}))
+shsk_ludox_czm_mm <- (apply(clr_ludox_mm, 1, function(x){log(x+1) - mean(log(x+1))}))
+
+
+# Define palette color
+col_matrix <- colorRampPalette(brewer.pal(10, "BrBG"))(256)
+
+
+# Combine the heatmap and the annotation
+Z.Score.ludox_mm <- scale(t(shsk_ludox_czm_mm))
+
+# Define colors for each level of qualitative variables, i.e. locations and habitats
+# Create the heatmap annotation
+ha_mm_3 = HeatmapAnnotation(
+  Habitat = as.vector(sample_tab_mm_ludox$Habitat),
+  col = list(
+    Habitat = c("Bare Sediment" = "saddlebrown", "Sea Grass" = "#00A572")),
+  annotation_legend_param = list(
+    Habitat = list(
+      title = "Habitat",
+      at = c("Bare Sediment", "Sea Grass"),
+      labels = c ("BS", "SG")
+    )
+  ))
+
+
+# Organize total abundance and taxa name
+# Taxa name
+Z.Score.ludox_name_mm <- as.data.frame(Z.Score.ludox_mm)
+str(Z.Score.ludox_name_mm)
+Z.Score.ludox_name_mm <- rownames_to_column(Z.Score.ludox_name_mm, var = "OTU")
+Z.Score.ludox_name_mm <- left_join(Z.Score.ludox_name_mm, aldex_taxa_info_mm_ludox)
+head(Z.Score.ludox_name_mm)
+#Z.Score.gen_name <- Z.Score.gen_name[, -(84:90)] ###
+
+# Taxa abundance 
+gen_ludox_otu_table_total_mm <- as.data.frame(gen_otu_table_ludox_mm)
+gen_ludox_otu_table_total_mm$Total <- rowSums(gen_otu_table_ludox_mm[, -1])
+head(gen_ludox_otu_table_total_mm)
+gen_ludox_otu_table_total_mm <- gen_ludox_otu_table_total_mm[, -(2:25)] ###
+
+Z.Score.ludox_count_total_mm <- left_join(Z.Score.ludox_name_mm, gen_ludox_otu_table_total_mm)
+head(Z.Score.ludox_count_total_mm)
+
+# Defining color scheme for row annotations
+abundance_col_fun = colorRamp2(c(0, 5000, 10000, 20000),
+                               c("#c7eae5",
+                                 "#80cdc1",
+                                 "#35978f",
+                                 "#01665e"))
+
+ha_right_gen_mm_3 = rowAnnotation(
+  Abundance = Z.Score.ludox_count_total_mm$Total, border = FALSE, col = list(Abundance = abundance_col_fun))
+row_labels_gen_mm_3 = Z.Score.ludox_count_total_mm$V22
+
+
+# Plot heatmap at the Genus level
+hm_mm_ludox <- Heatmap(Z.Score.ludox_mm, name = "Z-score, CLR", col = col_matrix,
+                       column_title  = "18S rRNA Ludox for Mason's Marina", 
+                       column_title_gp = gpar(fontface = "bold", fontsize = 14),
+                       #column_split = as.vector(as.vector(sample_tab_mm_ludox$Habitat)),
+                       #column_order = order(as.numeric(gsub("column", "", colnames(Z.Score.gen)))),
+                       border = TRUE,
+                       top_annotation = ha_mm_3,
+                       right_annotation = ha_right_gen_mm_3,
+                       row_title = "Genus",
+                       row_labels = row_labels_gen_mm_3,
+                       row_title_gp = gpar(fontsize = 10, fontface = "bold"),
+                       row_names_gp = gpar(fontsize = 6),
+                       column_names_gp = gpar(fontsize = 6),
+                       #row_order = order(row_labels_gen),
+                       rect_gp = gpar(col = "white", lwd = 1),
+                       show_column_names = FALSE,
+                       show_heatmap_legend = TRUE)
+
+hm_mm_ludox
+
+
+
+
+
+
+
+
+
+
+# Nematodes
+# Make new phyloseq to edit without messing up the original
+phylo_nemaotde_aldex_mm <- MM_phylo_18s_nematode
+
+# Use tax_fix to shift taxonomic names of higher ranks to lower ranks filled with NAs
+# Agglomerate taxa at genus level
+phylo_nemaotde_aldex_mm <- tax_fix(phylo_nemaotde_aldex_mm, unknowns = c("Unassigned", "uncultured", "Unkown", "uncultured eukaryote", 
+                                                                         "Unknown Family", "uncultured organism"))
+
+phylo_nemaotde_genus_mm <- tax_glom(phylo_nemaotde_aldex_mm, taxrank = "V22")
+
+d1 <- psmelt(phylo_nemaotde_genus_mm)
+
+# Run ALEDx2
+aldex2_nemaotde_gen_mm <- ALDEx2::aldex(data.frame(phyloseq::otu_table(phylo_nemaotde_genus_mm)),
+                                        phyloseq::sample_data(phylo_nemaotde_genus_mm)$Habitat,
+                                        mc.samples=128, test="kw", effect=TRUE,include.sample.summary=FALSE, denom="all", verbose=FALSE)
+# Create data frame and format
+gen_otu_table_nemaotde_mm <- data.frame(phyloseq::otu_table(phylo_nemaotde_genus_mm))
+gen_otu_table_nemaotde_mm <- rownames_to_column(gen_otu_table_nemaotde_mm, var = "OTU")
+
+write.csv(aldex2_nemaotde_gen_mm, "18s/Tables:Results/Aldex2 Genus/mm_aldex2_gen_nemaotde.csv")
+
+# Import results CSV and format
+aldex2_nemaotde_result_mm <- read.csv("18s/Tables:Results/Aldex2 Genus/mm_aldex2_gen_nemaotde.csv")
+colnames(aldex2_nemaotde_result_mm) <- c("OTU", "kw.ep", "kw.eBH", "glm.ep", "glm.eBH")
+
+# Create data frame for taxonomy 
+aldex_taxa_info_mm_nemaotde <- data.frame(tax_table(phylo_nemaotde_genus_mm))
+aldex_taxa_info_mm_nemaotde <- aldex_taxa_info_mm_nemaotde %>%
+  rownames_to_column(var = "OTU")
+
+sample_tab_mm_nemaotde <- data.frame(sample_data(phylo_nemaotde_genus_mm))
+
+# Export CSV 
+write.csv(aldex_taxa_info_mm, "18s/Tables:Results/Aldex2 Genus/mm_taxa_info_nemaotde.csv")
+
+# Import edited CSV
+aldex_taxa_info_mm <- read.csv("18s/Tables:Results/Aldex2 Genus/mm_taxa_info_nemaotde.csv")
+
+
+# Filter aldex2 results by sig kw.ep and join the taxanomic information
+sig_aldex2_nemaotde_result_mm <- aldex2_nemaotde_result_mm %>%
+  filter(kw.ep < 0.05) %>%
+  arrange(kw.ep, kw.eBH) %>%
+  dplyr::select(OTU, kw.ep, kw.eBH)
+sig_aldex2_nemaotde_result_mm <- left_join(sig_aldex2_nemaotde_result_mm, aldex_taxa_info_mm_nemaotde)
+write.csv(sig_aldex2_nemaotde_result_mm, "18s/Tables:Results/Aldex2 Genus/mm_sig_aldex2_gen_result_nemaotde.csv")
+
+# Made changes to taxonomy names if needed 
+sig_aldex2_nemaotde_result_mm <- read.csv("18s/Tables:Results/Aldex2 Genus/mm_sig_aldex2_gen_result_nemaotde.csv")
+
+# Create clr objects by using OTU ids, original otu table, and all significant OTUs
+sig_aldex2_nemaotde_result_count_mm <- left_join(sig_aldex2_nemaotde_result_mm, gen_otu_table_nemaotde_mm)
+sig_aldex2_nemaotde_result_count_mm <- sig_aldex2_nemaotde_result_count_mm[, -1]
+write.csv(sig_aldex2_nemaotde_result_count_mm, "18s/Tables:Results/Aldex2 Genus/mm_sig_aldex2_gen_result_count_nemaotde.csv")
+
+# Dropped taxonomic rank and formatted columns 
+clr_nemaotde_mm <- sig_aldex2_nemaotde_result_count_mm[, -(2:26)] 
+rownames(clr_nemaotde_mm) <- clr_nemaotde_mm$OTU
+clr_nemaotde_mm <- clr_nemaotde_mm[, -1]
+
+# Adjusting zeros on the matrix and applying log transformation
+shsk_nemaotde_czm_mm <- cmultRepl(t(clr_nemaotde_mm),  label=0, method="CZM")
+shsk_nemaotde_czm_tv_mm <- t(apply(shsk_nemaotde_czm_mm, 1, function(x){log(x) - mean(log(x))}))
+shsk_nemaotde_czm_mm <- (apply(clr_nemaotde_mm, 1, function(x){log(x+1) - mean(log(x+1))}))
+
+
+# Define palette color
+col_matrix <- colorRampPalette(brewer.pal(10, "BrBG"))(256)
+
+
+# Combine the heatmap and the annotation
+Z.Score.nemaotde_mm <- scale(t(shsk_nemaotde_czm_mm))
+
+# Define colors for each level of qualitative variables, i.e. locations and habitats
+# Create the heatmap annotation
+ha_mm_4 = HeatmapAnnotation(
+  Habitat = as.vector(sample_tab_mm_nemaotde$Habitat),
+  col = list(
+    Habitat = c("Bare Sediment" = "saddlebrown", "Sea Grass" = "#00A572")),
+  annotation_legend_param = list(
+    Habitat = list(
+      title = "Habitat",
+      at = c("Bare Sediment", "Sea Grass"),
+      labels = c ("BS", "SG")
+    )
+  ))
+
+
+# Organize total abundance and taxa name
+# Taxa name
+Z.Score.nemaotde_name_mm <- as.data.frame(Z.Score.nemaotde_mm)
+str(Z.Score.nemaotde_name_mm)
+Z.Score.nemaotde_name_mm <- rownames_to_column(Z.Score.nemaotde_name_mm, var = "OTU")
+Z.Score.nemaotde_name_mm <- left_join(Z.Score.nemaotde_name_mm, aldex_taxa_info_mm_nemaotde)
+head(Z.Score.nemaotde_name_mm)
+#Z.Score.gen_name <- Z.Score.gen_name[, -(84:90)] ###
+
+# Taxa abundance 
+gen_nemaotde_otu_table_total_mm <- as.data.frame(gen_otu_table_nemaotde_mm)
+gen_nemaotde_otu_table_total_mm$Total <- rowSums(gen_otu_table_nemaotde_mm[, -1])
+head(gen_nemaotde_otu_table_total_mm)
+gen_nemaotde_otu_table_total_mm <- gen_nemaotde_otu_table_total_mm[, -(2:25)] ###
+
+Z.Score.nemaotde_count_total_mm <- left_join(Z.Score.nemaotde_name_mm, gen_nemaotde_otu_table_total_mm)
+head(Z.Score.nemaotde_count_total_mm)
+
+# Defining color scheme for row annotations
+abundance_col_fun = colorRamp2(c(0, 5000, 10000, 20000),
+                               c("#c7eae5",
+                                 "#80cdc1",
+                                 "#35978f",
+                                 "#01665e"))
+
+ha_right_gen_mm_4 = rowAnnotation(
+  Abundance = Z.Score.nemaotde_count_total_mm$Total, border = FALSE, col = list(Abundance = abundance_col_fun))
+row_labels_gen_mm_4 = Z.Score.nemaotde_count_total_mm$V22
+
+
+# Plot heatmap at the Genus level
+hm_mm_nemaotde <- Heatmap(Z.Score.nemaotde_mm, name = "Z-score, CLR", col = col_matrix,
+                          column_title  = "Nematodes Only From Mason's Marina", 
+                          column_title_gp = gpar(fontface = "bold", fontsize = 14),
+                          #column_split = as.vector(as.vector(sample_tab_mm_nemaotde$Habitat)),
+                          #column_order = order(as.numeric(gsub("column", "", colnames(Z.Score.gen)))),
+                          border = TRUE,
+                          top_annotation = ha_mm_4,
+                          right_annotation = ha_right_gen_mm_4,
+                          row_title = "Genus",
+                          row_labels = row_labels_gen_mm_4,
+                          row_title_gp = gpar(fontsize = 10, fontface = "bold"),
+                          row_names_gp = gpar(fontsize = 6),
+                          column_names_gp = gpar(fontsize = 6),
+                          #row_order = order(row_labels_gen),
+                          rect_gp = gpar(col = "white", lwd = 1),
+                          show_column_names = FALSE,
+                          show_heatmap_legend = TRUE)
+
+hm_mm_nemaotde
