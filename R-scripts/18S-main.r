@@ -13,7 +13,7 @@ library(microViz) # Provides functions for microbiome data visualization and ana
 library(vegan) # Community ecology package; it can be use for diverse multivariate analysis.
 library(dplyr) # A tool for working/manipulating dataframes
 
-##################### Importing and cleaning data ####
+###################### Importing and cleaning data ######################
 # Imported taxonomy, dada2 table, rooted tree, and metadata from local storage
 taxonomy_18s <- qiime2R::read_qza("18s/QIIME2 Outputs/18S-rep-sequences-taxonomy.qza") 
 
@@ -85,7 +85,7 @@ phylo_18s <- prune_samples(!(sample_names(phylo_18s) %in% to_remove4), phylo_18s
 
 phylo_18s <- prune_samples(!(sample_names(phylo_18s) %in% to_remove5), phylo_18s) # 5470 taxa and 191 samples
 
-##################### Using Decontam for filering out contaminants ####
+###################### Using Decontam for filering out contaminants ######################
 sample_data(phylo_18s)$is.neg <- sample_data(phylo_18s)$Habitat == "NegtCtrl" | sample_data(phylo_18s)$Habitat == "Mock" | sample_data(phylo_18s)$Habitat == "Blank" # create a sample-variable for contaminants
 phylo_contaminants_18s <- isContaminant(phylo_18s, method = "prevalence", neg="is.neg", threshold=0.5, detailed = TRUE, normalize = TRUE) # detect contaminants based on control samples and their ASV prevalance
 table(phylo_contaminants_18s$contaminant) # check number of ASVs that are contaminents (41)
@@ -112,7 +112,7 @@ clan_18s_export <- as.data.frame(otu_table(phylo_18s))
 
 write.csv(clan_18s_export, "clan_18s_export.csv")
 
-###################### Making edits to original phyloseq ####################### 
+###################### Making edits to original phyloseq ###################### 
 # Removed the group Charophyta (sea grasses)
 phylo_18s <- subset_taxa(phylo_18s, V4 != "Charophyta") # 5294 taxa and 191 samples
 
