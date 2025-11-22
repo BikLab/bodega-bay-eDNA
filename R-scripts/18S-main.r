@@ -355,7 +355,7 @@ taxonomy_bar_18s_raw_top10_phylum <- ggplot(phy_18_raw_top10_agr, aes(x = Sample
 
 taxonomy_bar_18s_raw_top10_phylum
 
-##################### Plotting for Relative Abundance Top 20 and Top 10 Ludox at Phylum ######################
+###################### Plotting for Relative Abundance Top 20 and Top 10 Ludox at Phylum ######################
 # Function to collapse a certain number of taxa into category others
 merge_top20_18s_ludox <- function(phylo_ludox_18s, top=19){
   transformed <- transform_sample_counts(phylo_ludox_18s, function(x) x/sum(x))
@@ -594,7 +594,7 @@ custom_theme <- ttheme_minimal(
 
 symbionts_plot <- grid.arrange(symbionts_bar_18s_2, tableGrob(symbiont_data, theme = custom_theme, rows = NULL), nrow = 1)
 
-##################### Beta Diversity for Raw Sediment All Samples #################
+###################### Beta Diversity for Raw Sediment All Samples ######################
  
 # PCoA Raw Sediment
 phylo_18s_raw_ord_pcoa <- ordinate(phylo_normalized_raw_18s, "PCoA", "bray")
@@ -739,7 +739,7 @@ phylo_18s_raw_nmds_habitat$layers <- phylo_18s_raw_nmds_habitat$layers[-1]
 
 phylo_18s_raw_nmds_habitat 
 
-##################### Beta Diversity for Ludox All Samples ###########################
+###################### Beta Diversity for Ludox All Samples ######################
 # PCoA Ludox
 #phyo_18s_ludox_no_wpbs <- subset_samples(phylo_normalized_ludox_18s, Site != "Westside Park" | Habitat != "Bare Sediment")
 #psmelt(phyo_18s_ludox_no_wpbs)
@@ -884,7 +884,7 @@ phylo_18s_ludox_nmds_habitat$layers <- phylo_18s_ludox_nmds_habitat$layers[-1]
 
 phylo_18s_ludox_nmds_habitat
 
-##################### Beta Diversity Split by Location All Samples ###########################
+###################### Beta Diversity Split by Location All Samples ######################
 # Campbell Cove Only PCoA
 phylo_18s_ord_pcoa_cc <- ordinate(CC_phylo_18s_normalized, "PCoA", "bray")
 
@@ -1028,7 +1028,7 @@ phylo_18s_nmds_mm$layers <- phylo_18s_nmds_mm$layers[-1]
 phylo_18s_nmds_mm
 
 
-##################### Beta Diversity Split by Location Raw Sediment Sample Type ###########################
+###################### Beta Diversity Split by Location Raw Sediment Sample Type ######################
 # Campbell Cove Only PCoA
 phylo_18s_ord_pcoa_cc_raw <- ordinate(CC_phylo_18s_normalized_raw, "PCoA", "bray")
 
@@ -1205,7 +1205,7 @@ phylo_18s_nmds_mm_raw
 
 
 
-##################### Beta Diversity Split by Location Ludox Sample Type ###########################
+###################### Beta Diversity Split by Location Ludox Sample Type ######################
 # Campbell Cove Only PCoA
 phylo_18s_ord_pcoa_cc_ludox <- ordinate(CC_phylo_18s_normalized_ludox, "PCoA", "bray")
 
@@ -1379,7 +1379,7 @@ phylo_18s_nmds_mm_ludox
 
 
 
-##################### Beta Diversity Nematodes Only ####################
+###################### Beta Diversity Nematodes Only ######################
 # PCoA 
 phylo_18s_nematode_ord_pcoa <- ordinate(phylo_normalized_nematoda_18s, "PCoA", "bray")
 phylo_18s_nematode_pcoa <- plot_ordination(phylo_normalized_nematoda_18s, phylo_18s_nematode_ord_pcoa, type="samples", color="Site", shape="Habitat",
@@ -1624,7 +1624,7 @@ phylo_18s_nmds_mm_nematode$layers <- phylo_18s_nmds_mm_nematode$layers[-1]
 
 phylo_18s_nmds_mm_nematode
 
-##################### Nematode taxonomy bar charts Top 10 and Top 20 at Family and Genus Levels ###################
+###################### Nematode taxonomy bar charts Top 10 and Top 20 at Family and Genus Levels ######################
 # Family
 # Function to collapse a certain number of taxa into category others
 merge_top10_18s_nema <- function(phylo_nematoda_18s, top=9){
@@ -1905,7 +1905,7 @@ taxonomy_bar_18s_nema_genus_top20 <- ggplot(phy_18_nema_top20_agr_V22, aes(x = S
 
 taxonomy_bar_18s_nema_genus_top20
 
-##################### Alpha Div #######
+###################### Alpha Div ######################
 # Calculate alpha-diversity measures (For plot purposes only!)
 # This can be done using the different phyloseq alpha diversity measures
 # You will get a Warning message for each index since there is no singletons on the dataset
@@ -2307,7 +2307,7 @@ ad_18s_raw_habitat <- alpha_div_18S_raw %>%
 
 ad_18s_raw_habitat
 
-##################### Aldex2 Campbell Cove Comparison ################################
+###################### Aldex2 Campbell Cove Comparison ######################
 # All Samples
 # Make new phyloseq to edit without messing up the original
 phylo_18s_aldex_cc <- CC_phylo_18s
@@ -2900,7 +2900,7 @@ hm_cc_nemaotde
 
 
 
-##################### Aldex2 Westside Park Comparison ################################
+###################### Aldex2 Westside Park Comparison ######################
 # All Samples
 # Make new phyloseq to edit without messing up the original
 phylo_18s_aldex_wp <- WP_phylo_18s
@@ -3494,7 +3494,7 @@ hm_wp_nemaotde
 
 
 
-##################### Aldex2 Mason's Marina Comparison ################################
+###################### Aldex2 Mason's Marina Comparison ######################
 # All Samples
 # Make new phyloseq to edit without messing up the original
 phylo_18s_aldex_mm <- MM_phylo_18s
@@ -4033,7 +4033,7 @@ ha_mm_4 = HeatmapAnnotation(
   ))
 
 
-# Organize total abundance and taxa name
+# Orgsnize total abundance and taxa name
 # Taxa name
 Z.Score.nemaotde_name_mm <- as.data.frame(Z.Score.nemaotde_mm)
 str(Z.Score.nemaotde_name_mm)
