@@ -1904,3 +1904,405 @@ taxonomy_bar_18s_nema_genus_top20 <- ggplot(phy_18_nema_top20_agr_V22, aes(x = S
   scale_x_discrete(label = function(x) stringr::str_replace(x, "18S-bodega-bay_","")) 
 
 taxonomy_bar_18s_nema_genus_top20
+
+##################### Alpha Div #######
+# Calculate alpha-diversity measures (For plot purposes only!)
+# This can be done using the different phyloseq alpha diversity measures
+# You will get a Warning message for each index since there is no singletons on the dataset
+
+alpha_div_18S_ludox <- data.frame(
+  "Observed" = phyloseq::estimate_richness(phylo_ludox_18s, measures = "Observed"),
+  "Shannon" = phyloseq::estimate_richness(phylo_ludox_18s, measures = "Shannon"),
+  "InvSimpson" = phyloseq::estimate_richness(phylo_ludox_18s, measures = "InvSimpson"),
+  "Site" = phyloseq::sample_data(phylo_ludox_18s)$Site,
+  "Habitat" = phyloseq::sample_data(phylo_ludox_18s)$Habitat)
+
+alpha_div_18S_ludox$Evenness <- alpha_div_18S_ludox$Shannon/log(alpha_div_18S_ludox$Observed)
+
+head(alpha_div_18S_ludox)
+
+# Rename variable InvSimpson to Simpson
+# The function rename & %>% works on dplyr. make sure it is loaded.
+alpha_div_18S_ludox <- alpha_div_18S_ludox %>%
+  dplyr::rename(Simpson = InvSimpson)
+head(alpha_div_18S_ludox)
+
+# Reorder dataframe, first categorical then numerical variables  
+alpha_div_18S_ludox <- alpha_div_18S_ludox[, c( 5, 4, 1, 2, 3, 6)]
+head(alpha_div_18S_ludox)
+
+#Summarize alpha diversity measures by location
+summary_alpha_18S_ludox_site <- alpha_div_18S_ludox %>%
+  group_by(Site) %>%
+  dplyr::summarise(count = n(),
+                   mean_observed = mean(Observed),
+                   sd_observed = sd(Observed),
+                   mean_shannon = mean(Shannon),
+                   sd_shannon = sd(Shannon),
+                   mean_Simpson = mean(Simpson),
+                   sd_Simpson = sd(Simpson),
+                   mean_evenness = mean(Evenness),
+                   sd_evenness = sd(Evenness))
+
+write_csv(summary_alpha_18S_ludox_site, "summary_alpha_18S_ludox_site.csv")
+
+#Summarize alpha diversity measures by habitat
+summary_alpha_18S_ludox_habitat <- alpha_div_18S_ludox %>%
+  group_by(Habitat) %>%
+  dplyr::summarise(count = n(),
+                   mean_observed = mean(Observed),
+                   sd_observed = sd(Observed),
+                   mean_shannon = mean(Shannon),
+                   sd_shannon = sd(Shannon),
+                   mean_Simpson = mean(Simpson),
+                   sd_Simpson = sd(Simpson),
+                   mean_evenness = mean(Evenness),
+                   sd_evenness = sd(Evenness))
+
+write_csv(summary_alpha_18S_ludox_habitat, "summary_alpha_18S_ludox_habitat.csv")
+
+#Summarize alpha diversity measures by habitat within site
+summary_alpha_18S_ludox_site_habitat <- alpha_div_18S_ludox %>%
+  group_by(Site, Habitat) %>%
+  dplyr::summarise(count = n(),
+                   mean_observed = mean(Observed),
+                   median_observed = median(Observed),
+                   sd_observed = sd(Observed),
+                   mean_shannon = mean(Shannon),
+                   sd_shannon = sd(Shannon),
+                   mean_Simpson = mean(Simpson),
+                   sd_Simpson = sd(Simpson),
+                   mean_evenness = mean(Evenness),
+                   sd_evenness = sd(Evenness))
+
+write_csv(summary_alpha_18S_ludox_site_habitat, "summary_alpha_18S_ludox_site_habitat.csv")
+
+
+# KW analysis alpha_16S_nem on all metrics at once
+# Remember, numerical variables are from columns 3-5. The test is by location, column 2
+kw_alpha_18S_ludox <- as.data.frame(sapply(3:6, function(x) kruskal.test(alpha_div_18S_ludox[,x],
+                                                                       alpha_div_18S_ludox[,2])))
+
+# Rename columns with the proper variable names
+kw_alpha_18S_ludox <- kw_alpha_18S_ludox %>%
+  dplyr::rename(Observed = V1,
+         Shannon = V2,
+         Simpson = V3,
+         Evenness = V4)
+
+kw_alpha_18S_ludox <- t(kw_alpha_18S_ludox) # transpose
+kw_alpha_18S_ludox <- as_tibble(kw_alpha_18S_ludox, rownames = "Metric") # adding rownames as a column
+kw_alpha_18S_ludox <- kw_alpha_18S_ludox[, -(5:6)] # removing columns 5 and 6
+class(kw_alpha_18S_ludox) # checking object class
+
+# KW analysis alpha_16S_nem on all metrics at once
+# Remember, numerical variables are from columns 3-5. The test is by habitat, column 2
+kw_alpha_18S_ludox_habitat <- as.data.frame(sapply(3:6, function(x) kruskal.test(alpha_div_18S_ludox[,x],
+                                                                         alpha_div_18S_ludox[,1])))
+
+# Rename columns with the proper variable names
+kw_alpha_18S_ludox_habitat <- kw_alpha_18S_ludox_habitat %>%
+  dplyr::rename(Observed = V1,
+                Shannon = V2,
+                Simpson = V3,
+                Evenness = V4)
+
+kw_alpha_18S_ludox_habitat <- t(kw_alpha_18S_ludox_habitat) # transpose
+kw_alpha_18S_ludox_habitat <- as_tibble(kw_alpha_18S_ludox_habitat, rownames = "Metric") # adding rownames as a column
+kw_alpha_18S_ludox_habitat <- kw_alpha_18S_ludox_habitat[, -(5:6)] # removing columns 5 and 6
+class(kw_alpha_18S_ludox_habitat) # checking object class
+
+# Remember, numerical variables are from columns 3-5. The test is by site x habitat, column 7
+alpha_div_18S_ludox_with_new_factor <- alpha_div_18S_ludox
+
+alpha_div_18S_ludox_with_new_factor$Site_Habitat <- interaction(alpha_div_18S_ludox_with_new_factor$Site, alpha_div_18S_ludox_with_new_factor$Habitat)
+
+kw_alpha_18S_ludox_sitexhabitat <- as.data.frame(sapply(3:6, function(x) kruskal.test(alpha_div_18S_ludox_with_new_factor[,x],
+                                                                                 alpha_div_18S_ludox_with_new_factor[,7])))
+
+# Rename columns with the proper variable names
+kw_alpha_18S_ludox_sitexhabitat <- kw_alpha_18S_ludox_sitexhabitat %>%
+  dplyr::rename(Observed = V1,
+                Shannon = V2,
+                Simpson = V3,
+                Evenness = V4)
+
+kw_alpha_18S_ludox_sitexhabitat <- t(kw_alpha_18S_ludox_sitexhabitat) # transpose
+kw_alpha_18S_ludox_sitexhabitat <- as_tibble(kw_alpha_18S_ludox_sitexhabitat, rownames = "Metric") # adding rownames as a column
+kw_alpha_18S_ludox_sitexhabitat <- kw_alpha_18S_ludox_sitexhabitat[, -(5:6)] # removing columns 5 and 6
+class(kw_alpha_18S_ludox_sitexhabitat) # checking object class
+
+# Save resulting table with fwrite to avoid any issues with characters
+data.table::fwrite(kw_alpha_18S_ludox, "kw_alpha_18S_ludox.csv")
+data.table::fwrite(kw_alpha_18S_ludox_habitat, "kw_alpha_18S_ludox_habitat.csv")
+data.table::fwrite(kw_alpha_18S_ludox_sitexhabitat, "kw_alpha_18S_ludox_sitexhabitat.csv")
+
+# Plot alpha diversity measures
+# Change names
+alpha_div_18S_ludox$Site = factor(alpha_div_18S_ludox$Site, levels=c("Campbell Cove","Westside Park","Mason's Marina"))
+
+site_comparisons <- list( c("Campbell Cove", "Westside Park"), c("Westside Park", "Mason's Marina"), c("Campbell Cove", "Mason's Marina"))
+
+alpha_color_site <- c("#C8AB83","#2E5266","#E43F6F")
+
+ad_18s_ludox_site <- alpha_div_18S_ludox %>%
+  gather(key = metric, value = value, c("Observed", "Shannon", "Simpson", "Evenness")) %>%
+  mutate(metric = factor(metric, levels = c("Observed", "Shannon", "Simpson", "Evenness"))) %>%
+  ggplot(aes(x = Site, y = value)) +
+  geom_boxplot(outlier.color = NA, width = 0.5) +
+  stat_compare_means() +
+  stat_compare_means(comparisons = site_comparisons, p.adjust.methods = "BH", aes(label = ..p.signif..), size = 4, hide.ns = FALSE) +
+  geom_jitter(aes(color = Site), height = 0, width = .2) +
+  facet_nested(metric ~ Habitat, scales = "free") +
+  scale_color_manual(values = alpha_color_site) +
+  theme_bw() +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1, size = 12, face = "bold")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 12, face = "bold")) + # adjusts text of x axis
+  theme(axis.title.y = element_text(face = "bold", size = 12)) +  # adjusts the title of y axis
+  theme(axis.title.x = element_blank()) + # adjusts the title of x axis +
+  scale_y_continuous(expand = c(0.1, 0.1)) +
+  scale_x_discrete(
+    labels = c("CC", "WP", "MM"),
+    expand = c(0.2, 0.2),
+    drop = FALSE) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + # removes the gridlines
+  theme(strip.text = element_text(face = "bold", size =12), legend.title.align = 0.5) +  # adjusts the title of the legend
+  ylab("") + # add the title on y axis
+  xlab("Site") +  # add the title on x axis
+  theme(legend.position="none")  # add the title on x axis
+
+ad_18s_ludox_site
+
+
+alpha_color_habitat <- c("saddlebrown","#00A572")
+
+habitat_comparisons <- list(c("Bare Sediment", "Sea Grass"))
+
+ad_18s_ludox_habitat_ <- alpha_div_18S_ludox %>%
+  gather(key = metric, value = value, c("Observed", "Shannon", "Simpson", "Evenness")) %>%
+  mutate(metric = factor(metric, levels = c("Observed", "Shannon", "Simpson", "Evenness"))) %>%
+  ggplot(aes(x = Habitat, y = value)) +
+  geom_boxplot(outlier.color = NA, width = 0.5) +
+  stat_compare_means() +
+  stat_compare_means(comparisons = habitat_comparisons, p.adjust.methods = "BH", aes(label =..p.signif..), size = 4, hide.ns = FALSE) +
+  geom_jitter(aes(color = Habitat), height = 0, width = .2) +
+  facet_nested(metric ~ Site, scales = "free") +
+  scale_color_manual(values = alpha_color_habitat) +
+  theme_bw() +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1, size = 12, face = "bold")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 12, face = "bold")) + # adjusts text of x axis
+  theme(axis.title.y = element_text(face = "bold", size = 12)) +  # adjusts the title of y axis
+  theme(axis.title.x = element_blank()) + # adjusts the title of x axis 
+  scale_y_continuous(expand = c(0.1, 0.1)) +
+  scale_x_discrete(
+    labels = c("BS", "SG"),
+    expand = c(0.2, 0.2),
+    drop = FALSE) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + # removes the gridlines
+  theme(strip.text = element_text(face = "bold", size =12), legend.title.align = 0.5) +  # adjusts the title of the legend
+  ylab("") + # add the title on y axis
+  xlab("Site") +  # add the title on x axis
+  theme(legend.position="none") 
+
+ad_18s_ludox_habitat
+
+
+
+
+
+
+#### Raw
+alpha_div_18S_raw <- data.frame(
+  "Observed" = phyloseq::estimate_richness(phylo_raw_18s, measures = "Observed"),
+  "Shannon" = phyloseq::estimate_richness(phylo_raw_18s, measures = "Shannon"),
+  "InvSimpson" = phyloseq::estimate_richness(phylo_raw_18s, measures = "InvSimpson"),
+  "Site" = phyloseq::sample_data(phylo_raw_18s)$Site,
+  "Habitat" = phyloseq::sample_data(phylo_raw_18s)$Habitat)
+
+alpha_div_18S_raw$Evenness <- alpha_div_18S_raw$Shannon/log(alpha_div_18S_raw$Observed)
+
+head(alpha_div_18S_raw)
+
+# Rename variable InvSimpson to Simpson
+# The function rename & %>% works on dplyr. make sure it is loaded.
+alpha_div_18S_raw <- alpha_div_18S_raw %>%
+  dplyr::rename(Simpson = InvSimpson)
+head(alpha_div_18S_raw)
+
+# Reorder dataframe, first categorical then numerical variables  
+alpha_div_18S_raw <- alpha_div_18S_raw[, c( 5, 4, 1, 2, 3, 6)]
+head(alpha_div_18S_raw)
+
+#Summarize alpha diversity measures by location
+summary_alpha_18S_raw_site <- alpha_div_18S_raw %>%
+  group_by(Site) %>%
+  dplyr::summarise(count = n(),
+                   mean_observed = mean(Observed),
+                   sd_observed = sd(Observed),
+                   mean_shannon = mean(Shannon),
+                   sd_shannon = sd(Shannon),
+                   mean_Simpson = mean(Simpson),
+                   sd_Simpson = sd(Simpson),
+                   mean_evenness = mean(Evenness),
+                   sd_evenness = sd(Evenness))
+
+write_csv(summary_alpha_18S_raw_site, "summary_alpha_18S_raw_site.csv")
+
+#Summarize alpha diversity measures by habitat
+summary_alpha_18S_raw_habitat <- alpha_div_18S_raw %>%
+  group_by(Habitat) %>%
+  dplyr::summarise(count = n(),
+                   mean_observed = mean(Observed),
+                   sd_observed = sd(Observed),
+                   mean_shannon = mean(Shannon),
+                   sd_shannon = sd(Shannon),
+                   mean_Simpson = mean(Simpson),
+                   sd_Simpson = sd(Simpson),
+                   mean_evenness = mean(Evenness),
+                   sd_evenness = sd(Evenness))
+
+write_csv(summary_alpha_18S_raw_habitat, "summary_alpha_18S_raw_habitat.csv")
+
+#Summarize alpha diversity measures by habitat within site
+summary_alpha_18S_raw_site_habitat <- alpha_div_18S_raw %>%
+  group_by(Site, Habitat) %>%
+  dplyr::summarise(count = n(),
+                   mean_observed = mean(Observed),
+                   median_observed = median(Observed),
+                   sd_observed = sd(Observed),
+                   mean_shannon = mean(Shannon),
+                   sd_shannon = sd(Shannon),
+                   mean_Simpson = mean(Simpson),
+                   sd_Simpson = sd(Simpson),
+                   mean_evenness = mean(Evenness),
+                   sd_evenness = sd(Evenness))
+
+write_csv(summary_alpha_18S_raw_site_habitat, "summary_alpha_18S_raw_site_habitat.csv")
+
+
+# KW analysis alpha_16S_nem on all metrics at once
+# Remember, numerical variables are from columns 3-5. The test is by location, column 2
+kw_alpha_18S_raw <- as.data.frame(sapply(3:6, function(x) kruskal.test(alpha_div_18S_raw[,x],
+                                                                       alpha_div_18S_raw[,2])))
+
+# Rename columns with the proper variable names
+kw_alpha_18S_raw <- kw_alpha_18S_raw %>%
+  dplyr::rename(Observed = V1,
+         Shannon = V2,
+         Simpson = V3,
+         Evenness = V4)
+
+kw_alpha_18S_raw <- t(kw_alpha_18S_raw) # transpose
+kw_alpha_18S_raw <- as_tibble(kw_alpha_18S_raw, rownames = "Metric") # adding rownames as a column
+kw_alpha_18S_raw <- kw_alpha_18S_raw[, -(5:6)] # removing columns 5 and 6
+class(kw_alpha_18S_raw) # checking object class
+
+
+# KW analysis alpha_16S_nem on all metrics at once
+# Remember, numerical variables are from columns 3-5. The test is by hab, column 1
+kw_alpha_18S_raw_hab <- as.data.frame(sapply(3:6, function(x) kruskal.test(alpha_div_18S_raw[,x],
+                                                                       alpha_div_18S_raw[,1])))
+
+# Rename columns with the proper variable names
+kw_alpha_18S_raw_hab <- kw_alpha_18S_raw_hab %>%
+  dplyr::rename(Observed = V1,
+                Shannon = V2,
+                Simpson = V3,
+                Evenness = V4)
+
+kw_alpha_18S_raw_hab <- t(kw_alpha_18S_raw_hab) # transpose
+kw_alpha_18S_raw_hab <- as_tibble(kw_alpha_18S_raw_hab, rownames = "Metric") # adding rownames as a column
+kw_alpha_18S_raw_hab <- kw_alpha_18S_raw_hab[, -(5:6)] # removing columns 5 and 6
+class(kw_alpha_18S_raw_hab) # checking object class
+
+
+
+
+# KW analysis alpha_16S_nem on all metrics at once
+# Remember, numerical variables are from columns 3-5. The test is by sitexhab, column 7
+alpha_div_18S_raw_with_new_factor <- alpha_div_18S_raw
+
+alpha_div_18S_raw_with_new_factor$Site_Habitat <- interaction(alpha_div_18S_raw_with_new_factor$Site, alpha_div_18S_raw_with_new_factor$Habitat)
+
+kw_alpha_18S_raw_hab_site <- as.data.frame(sapply(3:6, function(x) kruskal.test(alpha_div_18S_raw_with_new_factor[,x],
+                                                                                alpha_div_18S_raw_with_new_factor[,7])))
+
+# Rename columns with the proper variable names
+kw_alpha_18S_raw_hab_site <- kw_alpha_18S_raw_hab_site %>%
+  dplyr::rename(Observed = V1,
+                Shannon = V2,
+                Simpson = V3,
+                Evenness = V4)
+
+kw_alpha_18S_raw_hab_site <- t(kw_alpha_18S_raw_hab_site) # transpose
+kw_alpha_18S_raw_hab_site <- as_tibble(kw_alpha_18S_raw_hab_site, rownames = "Metric") # adding rownames as a column
+kw_alpha_18S_raw_hab_site <- kw_alpha_18S_raw_hab_site[, -(5:6)] # removing columns 5 and 6
+class(kw_alpha_18S_raw_hab_site) # checking object class
+
+# Save resulting table with fwrite to avoid any issues with characters
+data.table::fwrite(kw_alpha_18S_raw, "kw_alpha_18S_raw.csv")
+data.table::fwrite(kw_alpha_18S_raw_hab, "kw_alpha_18S_raw_hab.csv")
+data.table::fwrite(kw_alpha_18S_raw_hab_site, "kw_alpha_18S_raw_hab_site.csv")
+
+
+# Plot alpha diversity measures
+# Change names
+
+alpha_div_18S_raw$Site = factor(alpha_div_18S_raw$Site, levels=c("Campbell Cove","Westside Park","Mason's Marina"))
+
+ad_18s_raw_site <- alpha_div_18S_raw %>%
+  gather(key = metric, value = value, c("Observed", "Shannon", "Simpson", "Evenness")) %>%
+  mutate(metric = factor(metric, levels = c("Observed", "Shannon", "Simpson", "Evenness"))) %>%
+  ggplot(aes(x = Site, y = value)) +
+  geom_boxplot(outlier.color = NA, width = 0.5) +
+  stat_compare_means() +
+  stat_compare_means(comparisons = site_comparisons, p.adjust.methods = "BH", aes(label = ..p.signif..), size = 4, hide.ns = FALSE) +
+  geom_jitter(aes(color = Site), height = 0, width = .2) +
+  facet_nested(metric ~ Habitat, scales = "free") +
+  scale_color_manual(values = alpha_color_site) +
+  theme_bw() +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1, size = 12, face = "bold")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 12, face = "bold")) + # adjusts text of x axis
+  theme(axis.title.y = element_text(face = "bold", size = 12)) +  # adjusts the title of y axis
+  theme(axis.title.x = element_blank()) + # adjusts the title of x axis +
+  scale_y_continuous(expand = c(0.1, 0.1)) +
+  scale_x_discrete(
+    labels = c("CC", "WP", "MM"),
+    expand = c(0.2, 0.2),
+    drop = FALSE) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + # removes the gridlines
+  theme(strip.text = element_text(face = "bold", size =12), legend.title.align = 0.5) +  # adjusts the title of the legend
+  ylab("") + # add the title on y axis
+  xlab("Site") +  # add the title on x axis
+  theme(legend.position="none")  # add the title on x axis
+
+ad_18s_raw_site
+
+
+ad_18s_raw_habitat <- alpha_div_18S_raw %>%
+  gather(key = metric, value = value, c("Observed", "Shannon", "Simpson", "Evenness")) %>%
+  mutate(metric = factor(metric, levels = c("Observed", "Shannon", "Simpson", "Evenness"))) %>%
+  ggplot(aes(x = Habitat, y = value)) +
+  geom_boxplot(outlier.color = NA, width = 0.5) +
+  stat_compare_means() +
+  stat_compare_means(comparisons = habitat_comparisons, p.adjust.methods = "BH", aes(label =..p.signif..), size = 4, hide.ns = FALSE) +
+  geom_jitter(aes(color = Habitat), height = 0, width = .2) +
+  facet_nested(metric ~ Site, scales = "free") +
+  scale_color_manual(values = alpha_color_habitat) +
+  theme_bw() +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1, size = 12, face = "bold")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, size = 12, face = "bold")) + # adjusts text of x axis
+  theme(axis.title.y = element_text(face = "bold", size = 12)) +  # adjusts the title of y axis
+  theme(axis.title.x = element_blank()) + # adjusts the title of x axis +
+  scale_y_continuous(expand = c(0.1, 0.1)) +
+  scale_x_discrete(
+    labels = c("BS", "SG"),
+    expand = c(0.2, 0.2),
+    drop = FALSE) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) + # removes the gridlines
+  theme(strip.text = element_text(face = "bold", size =12), legend.title.align = 0.5) +  # adjusts the title of the legend
+  ylab("") + # add the title on y axis
+  xlab("Site") +  # add the title on x axis
+  theme(legend.position="none")
+
+ad_18s_raw_habitat
