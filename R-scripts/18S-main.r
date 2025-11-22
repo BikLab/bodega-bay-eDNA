@@ -30,7 +30,6 @@ refseq_df <- refseq$data
 
 physeq_seq <- refseq(refseq_df)
 
-
 # Extracted taxonomy data from taxonomy file
 taxonomy_info_18s <- taxonomy_18s$data
 
@@ -65,7 +64,6 @@ OTU_18s <- otu_table(OTUMAT_18s, taxa_are_rows = TRUE, replace_na(0))
 otu_18s_export <- as.data.frame(OTU_18s)
 
 write.csv(otu_18s_export,"18s_asv_table.csv")
-
 
 TREE_18s <- tree_18s$data
 
@@ -113,3 +111,86 @@ df_phylo_18s <- psmelt(phylo_18s)
 clan_18s_export <- as.data.frame(otu_table(phylo_18s))
 
 write.csv(clan_18s_export, "clan_18s_export.csv")
+
+###################### Making edits to original phyloseq ####################### 
+# Removed the group Charophyta (sea grasses)
+phylo_18s <- subset_taxa(phylo_18s, V4 != "Charophyta") # 5294 taxa and 191 samples
+
+phylo_18s <- subset_taxa(phylo_18s, V1 != "Unassigned") # 4165 taxa and 191 samples
+
+phylo_18s <- subset_taxa(phylo_18s, !grepl("Ulva", V6, ignore.case = TRUE)) # 4150 taxa and 191 samples
+
+# Subset phyloseq by Habitat
+# This removed any mocks, blanks, or controls that were left in the original phyloseq
+# Normalized the phyloseq for relative abundance 
+phylo_18s <- phylo_18s %>% subset_samples(Site %in% c("Mason's Marina", "Campbell Cove", "Westside Park")) # 4150 taxa and 165 samples
+
+phylo_18s <- phylo_18s %>% 
+  prune_samples(sample_sums(.) > 0, .) %>%
+  prune_taxa(taxa_sums(.) > 0, .)
+
+phylo_normalized_18s <- microbiome::transform(phylo_18s, "compositional")
+
+# Subset the samples that were Raw Sediment sample type
+# Normalized the Raw Sediment samples for relative abundance 
+phylo_raw_18s <- phylo_18s %>% subset_samples(SampleType %in% c("RawSediment")) # 4150 taxa and 81 samples
+
+phylo_normalized_raw_18s <- microbiome::transform(phylo_raw_18s, "compositional")
+
+# Subset the samples that were Ludox sample type
+# Normalized the Ludox samples for relative abundance 
+phylo_ludox_18s <- phylo_18s %>% subset_samples(SampleType %in% c("Ludox")) # 4150 taxa and 84 samples
+
+phylo_normalized_ludox_18s <- microbiome::transform(phylo_ludox_18s, "compositional")
+
+# Subset the samples for only Nematodes from Ludox samples
+phylo_nematoda_18s <- subset_taxa(phylo_ludox_18s, V14 %in% c("Nematoda")) # 772 taxa and 84 samples
+
+phylo_normalized_nematoda_18s <- microbiome::transform(phylo_nematoda_18s, "compositional")
+
+df_phylo_ludox <- psmelt(phylo_ludox_18s)
+
+df_phylo_raw <- psmelt(phylo_raw_18s)
+
+# Site specific phyloseq objects
+CC_phylo_18s <- phylo_18s %>% subset_samples(Site %in% ("Campbell Cove"))
+CC_phylo_18s_normalized <- microbiome::transform(CC_phylo_18s, "compositional")
+
+WP_phylo_18s <- phylo_18s %>% subset_samples(Site %in% ("Westside Park"))
+WP_phylo_18s_normalized <- microbiome::transform(WP_phylo_18s, "compositional")
+
+MM_phylo_18s <- phylo_18s %>% subset_samples(Site %in% ("Mason's Marina"))
+MM_phylo_18s_normalized <- microbiome::transform(MM_phylo_18s, "compositional")
+
+# Site specific phyloseq objects by Sample Type
+CC_phylo_18s_raw <- phylo_raw_18s %>% subset_samples(Site %in% ("Campbell Cove"))
+CC_phylo_18s_normalized_raw <- microbiome::transform(CC_phylo_18s_raw, "compositional")
+
+WP_phylo_18s_raw <- phylo_raw_18s %>% subset_samples(Site %in% ("Westside Park"))
+WP_phylo_18s_normalized_raw <- microbiome::transform(WP_phylo_18s_raw, "compositional")
+
+MM_phylo_18s_raw <- phylo_raw_18s %>% subset_samples(Site %in% ("Mason's Marina"))
+MM_phylo_18s_normalized_raw <- microbiome::transform(MM_phylo_18s_raw, "compositional")
+
+CC_phylo_18s_ludox <- phylo_ludox_18s %>% subset_samples(Site %in% ("Campbell Cove"))
+CC_phylo_18s_normalized_ludox <- microbiome::transform(CC_phylo_18s_ludox, "compositional")
+
+WP_phylo_18s_ludox <- phylo_ludox_18s %>% subset_samples(Site %in% ("Westside Park"))
+WP_phylo_18s_normalized_ludox <- microbiome::transform(WP_phylo_18s_ludox, "compositional")
+
+MM_phylo_18s_ludox <- phylo_ludox_18s %>% subset_samples(Site %in% ("Mason's Marina"))
+MM_phylo_18s_normalized_ludox <- microbiome::transform(MM_phylo_18s_ludox, "compositional")
+
+# Site specific phyloseq objects for Nematodes only
+CC_phylo_18s_nematode <- phylo_nematoda_18s %>% subset_samples(Site %in% ("Campbell Cove"))
+CC_phylo_18s_normalized_nematode <- microbiome::transform(CC_phylo_18s_nematode, "compositional")
+
+WP_phylo_18s_nematode <- phylo_nematoda_18s %>% subset_samples(Site %in% ("Westside Park"))
+WP_phylo_18s_normalized_nematode <- microbiome::transform(WP_phylo_18s_nematode, "compositional")
+
+MM_phylo_18s_nematode <- phylo_nematoda_18s %>% subset_samples(Site %in% ("Mason's Marina"))
+MM_phylo_18s_normalized_nematode <- microbiome::transform(MM_phylo_18s_nematode, "compositional")
+
+phylo_18s_all_samples <- microbiome::transform(phylo_ludox_18s, "compositional")
+simple_ord_18s <- ordinate(phylo_18s_all_samples, "NMDS", "bray")
+plot_ordination(phylo_18s_all_samples, simple_ord_18s, type="samples", color="Site", shape="Habitat")#, label = "Description")
