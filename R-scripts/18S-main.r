@@ -1,5 +1,6 @@
 ###################### Libraries ######################
 library(tidyverse) 
+library(ggpattern)
 library(qiime2R) # Integrating QIIME2 and R for data visualization and analysis using qiime2R.
 library(phyloseq) # Handling and analysis of high-throughput microbiome census data.
 library(ggh4x) # ggh4x package is a ggplot2 extension package.
@@ -491,3 +492,105 @@ taxonomy_bar_18s_ludox_top10_phylum <- ggplot(phy_18_ludox_top10_agr, aes(x = Sa
   scale_x_discrete(label = function(x) stringr::str_replace(x, "18S-bodega-bay_","")) 
 
 taxonomy_bar_18s_ludox_top10_phylum
+
+##################### Looking for specific nematode with known symbionts ####
+symbionts_18s <- subset_taxa(phylo_normalized_18s, V22 == "Robbea" | V22 == "Astomonema" | V22 == "Eubostrichus")
+symbionts_18s <- prune_samples(sample_sums(symbionts_18s) > 0, symbionts_18s)
+symbionts_df_18s <- psmelt(symbionts_18s)
+symbionts_df_18s <- subset(symbionts_df_18s, Abundance != 0)
+write.csv(symbionts_df_18s, "18s_sym.csv")
+
+symbionts_df_18s <- symbionts_df_18s %>%
+  mutate(
+    Type = case_when(
+      SampleType %in% c("RawSediment") ~ "stripe",  # Apply pattern to these
+      TRUE ~ "none"  # No pattern for others
+    )
+  )
+
+symbionts_bar_18s_2 <- ggplot(
+  symbionts_df_18s, 
+  aes(x = Sample, y = Abundance, fill = V22, pattern = Type)
+) +
+  geom_bar_pattern(
+    stat = "identity",
+    na.rm = TRUE,
+    pattern_fill = "black",       # Color of the pattern lines
+    pattern_angle = 45,           # Angle of stripes
+    pattern_density = 0.2,        # How dense the pattern is (0-1)
+    pattern_spacing = 0.02,       # Spacing between pattern elements
+    pattern_key_scale_factor = 1  # Adjust legend key size
+  ) +
+  facet_nested(. ~ Site + Habitat, scales = "free") +
+  scale_fill_manual(values = palette, name = "Chemosynthetic Nematodes") +
+  scale_pattern_manual(
+    values = c("stripe" = "stripe", "none" = "none"),
+               name = "Sample Type",
+    labels = c("none" = "Ludox", "stripe" = "Raw Sediment")) +
+  guides(fill = guide_legend(override.aes = list(pattern = "none"))) +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1, size = 10, face = "bold")) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+  theme(axis.title.y = element_text(face = "bold", size = 12)) +
+  theme(axis.title.x = element_blank()) +
+  scale_y_continuous(labels=scales::percent, expand = c(0.0, 0.0)) + # plot as % and removes the internal margins
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(fill = "white")) + # removes the gridlines
+  guides(fill = guide_legend(reverse = FALSE, keywidth = 1, keyheight = 1)) + # Plot the legend
+  theme(legend.title = element_text(face = "bold", size =12), legend.title.align = 0.5) + # # adjusts the title of the legend
+  ylab("Relative Abundance") + # add the title on y axis
+  xlab("Sample") + # add the title on x axis
+  theme(strip.background =element_rect(
+    color = "black",
+    fill = "white",
+    linewidth = 1,
+    linetype = "solid"),
+    strip.text = element_text(
+      size = 12, color = "black", face = "bold"))
+
+
+palette <- c("#335c67", "#fff3b0","#e09f3e")
+
+symbionts_bar_18s <- ggplot(symbionts_df_18s, aes(x = Sample, y = Abundance, fill = V22)) +
+  geom_bar(stat = "identity", na.rm = TRUE) +
+  facet_nested(. ~ Site+Habitat, scales = "free") +
+  scale_color_manual(values = palette) +
+  scale_fill_manual(values = palette, name = "Chemosynthetic Nematodes") +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1, size = 10, face = "bold")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 10, vjust = 0.5, face = "bold")) + # adjusts text of x axis
+  #theme(axis.text.x = element_blank(), axis.ticks.x = element_blank()) +
+  theme(axis.title.y = element_text(face = "bold", size = 12)) +  # adjusts the title of y axis
+  theme(axis.title.x = element_text(face = "bold", size = 12)) + 
+  #theme(axis.title.x = element_blank()) +# adjusts the title of x axis
+  scale_y_continuous(labels=scales::percent, expand = c(0.0, 0.0)) + # plot as % and removes the internal margins
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(fill = "white")) + # removes the gridlines
+  guides(fill = guide_legend(reverse = FALSE, keywidth = 1, keyheight = 1)) + # Plot the legend
+  theme(legend.title = element_text(face = "bold", size =12), legend.title.align = 0.5) + # # adjusts the title of the legend
+  ylab("Relative Abundance") + # add the title on y axis
+  xlab("Sample") + # add the title on x axis
+  theme(strip.background =element_rect(
+    color = "black",
+    fill = "white",
+    linewidth = 1,
+    linetype = "solid"),
+    strip.text = element_text(
+      size = 12, color = "black", face = "bold"))+  # Format facet grid title 
+  scale_x_discrete(label = function(x) stringr::str_replace(x, "18S-bodega-bay_","")) 
+
+
+symbionts_bar_18s
+
+symbiont_data <- read_tsv("Raw Data/blast_hit.tsv")
+
+custom_theme <- ttheme_minimal(
+  core = list(
+    bg_params = list(fill = NA, col = "black") # Ensure cell borders are black
+  ),
+  colhead = list(
+    bg_params = list(fill = NA, col = "black") # Header cell borders
+  ),
+  rowhead = list(
+    bg_params = list(fill = NA, col = "black") # Row header borders (if applicable)
+  )
+)
+
+symbionts_plot <- grid.arrange(symbionts_bar_18s_2, tableGrob(symbiont_data, theme = custom_theme, rows = NULL), nrow = 1)
+
