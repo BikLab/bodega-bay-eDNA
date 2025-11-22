@@ -287,7 +287,7 @@ taxonomy_bar_18s_raw_top20_phylum <- ggplot(phy_18_raw_top20_agr, aes(x = Sample
 
 taxonomy_bar_18s_raw_top20_phylum
 
-#
+# Function for top 10
 merge_top10_18s_raw <- function(phylo_raw_18s, top=9){
   transformed <- transform_sample_counts(phylo_raw_18s, function(x) x/sum(x))
   otu.table <- as.data.frame(otu_table(transformed))
@@ -353,3 +353,141 @@ taxonomy_bar_18s_raw_top10_phylum <- ggplot(phy_18_raw_top10_agr, aes(x = Sample
   scale_x_discrete(label = function(x) stringr::str_replace(x, "18S-bodega-bay_","")) 
 
 taxonomy_bar_18s_raw_top10_phylum
+
+##################### Plotting for Relative Abundance Top 20 and Top 10 Ludox at Phylum ######################
+# Function to collapse a certain number of taxa into category others
+merge_top20_18s_ludox <- function(phylo_ludox_18s, top=19){
+  transformed <- transform_sample_counts(phylo_ludox_18s, function(x) x/sum(x))
+  otu.table <- as.data.frame(otu_table(transformed))
+  otu.sort <- otu.table[order(rowMeans(otu.table), decreasing = TRUE),]
+  otu.list <- row.names(otu.sort[(top+1):nrow(otu.sort),])
+  merged <- merge_taxa(transformed, otu.list, 1)
+  for (i in 1:dim(tax_table(merged))[1]){
+    if (is.na(tax_table(merged)[i,2])){
+      taxa_names(merged)[i] <- "Others"
+      tax_table(merged)[i,1:23] <- "Others"} # 1:23 if there are species level
+  }
+  return(merged)
+}
+
+# Agglomerated taxa down to V14 rank 
+# Use tax_fix function to assign taxa names to lower ranks that are unknown
+temp_phylo_18s_ludox <- phylo_ludox_18s
+
+fix_phylo_18s_ludox <- tax_fix(temp_phylo_18s_ludox, unknowns = c("Unassigned", "uncultured", "Unkown", "uncultured eukaryote", "Unknown Family"))
+
+glom_18s_ludox <- tax_glom(fix_phylo_18s_ludox, taxrank = "V14")
+
+# Run function on phyloseq object and make into data frame
+phy_18_ludox_top20_V14 <- merge_top20_18s_ludox(glom_18s_ludox, top=19)
+
+phy_18_ludox_top20_V14_df <- psmelt(phy_18_ludox_top20_V14)
+
+# Add common factors to use for plotting
+phy_18_ludox_top20_agr = aggregate(Abundance~Sample+Site+Habitat+V14, data=phy_18_ludox_top20_V14_df, FUN=mean) 
+unique(phy_18_ludox_top20_agr$V14)
+
+# Put "Others" to the final of the Phylum list - top 20
+phy_18_ludox_top20_agr$V14 <- factor(phy_18_ludox_top20_agr$V14,
+                                     levels = c("Alexandrium sp. CCMP1911 V9", "Alexandrium V8", "Brachiopoda", "Crustacea", "Gloiopeltis furcata V6",
+                                                "Gonyaulax spinifera V9", "Gymnodinium sp. MUCC284 V8", "Halodaphnea panulirata V6", "Lankesteria V8",
+                                                "Lecudina phyllochaetopteri V9", "Maullinia V6", "Oligotrichia sp. EP-2016a V9", "Polychaeta","Nematoda",
+                                                "Protoperidinium conicum V9", "Protoperidinium leonis V9", "Rhabditophora", "Salispina spinosa var. spinosa V6",
+                                                "Tribonema marinum V8", "Others"))
+                                     
+# Reorder Site levels
+phy_18_ludox_top20_agr$Site = factor(phy_18_ludox_top20_agr$Site, levels=c("Campbell Cove","Westside Park","Mason's Marina"))
+
+# Plot by site - Class level top 10
+  taxonomy_bar_18s_ludox_top20_phylum <- ggplot(, aes(x = Sample, y = Abundance, fill = V14)) +
+  facet_nested(. ~ Site+Habitat, scales = "free",
+               labeller = labeller(Site = site.labs, Habitat = habitat.labs)) +
+  geom_bar(stat = "identity", width = 0.95) + # adds to 100%
+  geom_text(aes(label = ifelse(round(Abundance*100) >= 5, paste(round(Abundance*100, digits = 0), "%"), "")), size = 2, position = position_stack(vjust = 0.5)) +
+  scale_fill_manual(values = colors_top20, name = "Ludox Phylum") +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1, size = 10, face = "bold")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 10, vjust = 0.5, face = "bold")) + # adjusts text of x axis
+  theme(axis.title.y = element_text(face = "bold", size = 12)) +  # adjusts the title of y axis
+  theme(axis.title.x = element_text(face = "bold", size = 12)) + # adjusts the title of x axis
+  scale_y_continuous(labels=scales::percent, expand = c(0.0, 0.0)) + # plot as % and removes the internal margins
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(fill = "white")) + # removes the gridlines
+  guides(fill = guide_legend(reverse = FALSE, keywidth = 1, keyheight = 1)) + # Plot the legend
+  theme(legend.title = element_text(face = "bold", size =12)) + # # adjusts the title of the legend
+  ylab("Relative Abundance") + # add the title on y axis
+  xlab("Sample") + # add the title on x axis
+  theme(strip.background =element_rect(
+    color = "black",
+    fill = "white",
+    linewidth = 1,
+    linetype = "solid"),
+    strip.text = element_text(
+      size = 12, color = "black", face = "bold")) + # Format facet grid title 
+  scale_x_discrete(label = function(x) stringr::str_replace(x, "18S-bodega-bay_","")) 
+
+
+taxonomy_bar_18s_ludox_top20_phylum
+
+
+
+
+
+merge_top10_18s_ludox <- function(phylo_ludox_18s, top=9){
+  transformed <- transform_sample_counts(phylo_ludox_18s, function(x) x/sum(x))
+  otu.table <- as.data.frame(otu_table(transformed))
+  otu.sort <- otu.table[order(rowMeans(otu.table), decreasing = TRUE),]
+  otu.list <- row.names(otu.sort[(top+1):nrow(otu.sort),])
+  merged <- merge_taxa(transformed, otu.list, 1)
+  for (i in 1:dim(tax_table(merged))[1]){
+    if (is.na(tax_table(merged)[i,2])){
+      taxa_names(merged)[i] <- "Others"
+      tax_table(merged)[i,1:23] <- "Others"} # 1:23 if there are species level
+  }
+  return(merged)
+}
+
+
+# Run function on phyloseq object and make into data frame
+phy_18_ludox_top10_V14 <- merge_top20_18s_ludox(glom_18s_ludox, top=9)
+
+phy_18_ludox_top10_V14_df <- psmelt(phy_18_ludox_top10_V14)
+
+# Add common factors to use for plotting
+phy_18_ludox_top10_agr = aggregate(Abundance~Sample+Site+Habitat+V14, data=phy_18_ludox_top10_V14_df, FUN=mean) 
+unique(phy_18_ludox_top10_agr$V14)
+
+# Put "Others" to the final of the Phylum list - top 10
+phy_18_ludox_top10_agr$V14 <- factor(phy_18_ludox_top10_agr$V14,
+                                     levels = c("Crustacea", "Gonyaulax spinifera V9","Lecudina phyllochaetopteri V9",
+                                                "Maullinia V6","Polychaeta", "Protoperidinium conicum V9", "Protoperidinium leonis V9", "Nematoda",
+                                                "Rhabditophora","Others"))
+
+# Reorder Site levels
+phy_18_ludox_top10_agr$Site = factor(phy_18_ludox_top10_agr$Site, levels=c("Campbell Cove","Westside Park","Mason's Marina"))
+
+# Plot by site - Class level top 10
+taxonomy_bar_18s_ludox_top10_phylum <- ggplot(phy_18_ludox_top10_agr, aes(x = Sample, y = Abundance, fill = V14)) +
+  facet_nested(. ~ Site+Habitat, scales = "free",
+               labeller = labeller(Site = site.labs, Habitat = habitat.labs)) +
+  geom_bar(stat = "identity", width = 0.95) + # adds to 100%
+  geom_text(aes(label = ifelse(round(Abundance*100) >= 5, paste(round(Abundance*100, digits = 0), "%"), "")), size = 2, position = position_stack(vjust = 0.5)) +
+  scale_fill_manual(values = colors_top10_2, name = "Ludox Phylum") +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1, size = 10, face = "bold")) + # adjusts text of y axis
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, size = 10, vjust = 0.5, face = "bold")) + # adjusts text of x axis
+  theme(axis.title.y = element_text(face = "bold", size = 12)) +  # adjusts the title of y axis
+  theme(axis.title.x = element_text(face = "bold", size = 12)) + # adjusts the title of x axis
+  scale_y_continuous(labels=scales::percent, expand = c(0.0, 0.0)) + # plot as % and removes the internal margins
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_rect(fill = "white")) + # removes the gridlines
+  guides(fill = guide_legend(reverse = FALSE, keywidth = 1, keyheight = 1)) + # Plot the legend
+  theme(legend.title = element_text(face = "bold", size =12)) + # # adjusts the title of the legend
+  ylab("Relative Abundance") + # add the title on y axis
+  xlab("Sample") + # add the title on x axis
+  theme(strip.background =element_rect(
+    color = "black",
+    fill = "white",
+    linewidth = 1,
+    linetype = "solid"),
+    strip.text = element_text(
+      size = 12, color = "black", face = "bold")) + # Format facet grid title 
+  scale_x_discrete(label = function(x) stringr::str_replace(x, "18S-bodega-bay_","")) 
+
+taxonomy_bar_18s_ludox_top10_phylum
