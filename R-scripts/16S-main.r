@@ -148,7 +148,6 @@ MM_phylo_16s_normalized <- microbiome::transform(MM_phylo_16s, "compositional")
 
 ###################### Plotting for Relative Abundance ######################
 # Functions to collapse a certain number of taxa into category others 
-
 # Top 10 most abundant taxa + others
 merge_top10 <- function(ps_object, top=9){
   transformed <- transform_sample_counts(ps_object, function(x) x/sum(x))
