@@ -46,7 +46,7 @@ write.csv(metadata_ec, "16S-EC-table-description.csv")
 
 picrust_phyloseq <- phyloseq(ec_phy, tax_phy, samples) # 3046 taxa and 100 samples
 
-####################################### Making edits to phyloseq object #################
+####################################### Making edits to phyloseq object #######################################
 
 combined_ec_asv_table <- read.table("Picrust/Picrust After/combined_EC_predicted.tsv", header=T, 
                                     sep="\t", stringsAsFactors=F, quote = "", check.names=F, comment.char="")
@@ -81,7 +81,7 @@ ec_meta <- read.csv("intermediate_metadata.csv", row.names = 1)
 
 
 
-# Find EC numbers with a specific keyword
+##########################################Find EC numbers with a specific keyword #######################################
 matching_ecs <- rownames(metadata_ec)[grepl("sulf", metadata_ec$description, ignore.case = TRUE)]
 
 # Initialize a list to hold results for each EC
@@ -118,9 +118,6 @@ summary_table <- do.call(rbind, lapply(names(result_list), function(ec) {
 }))
 
 write.csv(summary_table, "summary_table_with_bacteria_genus.csv")
-
-# Load required library
-library(dplyr)
 
 # Expand all genera into a single vector
 all_genera <- unlist(strsplit(summary_table$Contributing_Genera, ",\\s*"))
