@@ -102,8 +102,6 @@ summarize_genus_row <- function(tax_tab) {
 }
 
 
-
-
 summary_table <- do.call(rbind, lapply(names(result_list), function(ec) {
   row <- result_list[[ec]]
   if (NROW(row$taxonomy) == 0) {
@@ -120,7 +118,6 @@ summary_table <- do.call(rbind, lapply(names(result_list), function(ec) {
 }))
 
 write.csv(summary_table, "summary_table_with_bacteria_genus.csv")
-
 
 # Load required library
 library(dplyr)
@@ -146,26 +143,6 @@ top_40_genera <- head(top_genera, 40)
 top_50_genera <- head(top_genera, 50)
 
 top_100_genera <- head(top_genera, 100)
-
-
-
-vibrio_sub <- subset_taxa(phylo_16s_fixed, V4 == "Rickettsiales")
-vib_df <- psmelt(vibrio_sub)
-
-plot_bar(vibrio_sub, fill = "V4") +
-  facet_grid(~ Site + Habitat)
-
-
-
-
-
-#tax_phy_df <- as.data.frame(tax_phy)
-#x <- colnames(combined_ec_asv_table) # = rownames(mx)
-#tax_phy_df$description[match(x, rownames(tax_phy_df))]
-#colnames(combined_ec_asv_table) <- tax_phy_df$description[match(x, rownames(tax_phy_df))]
-
-
-
 
 
 picrust_phyloseq <- subset_samples(picrust_phyloseq, 
