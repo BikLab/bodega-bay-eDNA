@@ -1,0 +1,2 @@
+# Bodega Harbor Repository
+This repository contains code, workflows, and supporting materials for analyzing environmental DNA (eDNA) from temperate seagrass ecosystems across an estuarine gradient in Bodega Bay, California. The study integrates bacteria/archaea (16S), microeukaryote (18S), and meiofaunal (18S Ludox) community data to evaluate how environmental gradients and seagrass presence shape benthic biodiversity.
